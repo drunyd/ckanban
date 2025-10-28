@@ -181,21 +181,32 @@
         if(!ids.length){ const placeholder = el('div','empty-msg'); placeholder.textContent='Empty'; list.appendChild(placeholder); }
         ids.forEach(cid => {
           const card = cards[cid]; if(!card) return;
-            const li = el('li','card'); li.dataset.cardId=cid;
-            if(card.type==='card') li.draggable = true; else li.classList.add('link-card');
-            const title = el('div','card-title');
-            if(card.type==='link' && card.url){
-              const a = document.createElement('a'); a.href=card.url; a.target='_blank'; a.rel='noopener'; a.textContent=card.title; title.appendChild(a);
-            } else { title.textContent = card.title; }
-            li.appendChild(title);
-            const actions = el('div','card-actions');
-            const editBtn = el('button'); editBtn.textContent='✎'; editBtn.title='Edit title'; editBtn.addEventListener('click',()=>{
-              const nt = prompt('Edit title', card.title); if(nt && nt!==card.title) editCard(cid, nt);
-            });
-            const delCBtn = el('button'); delCBtn.textContent='✕'; delCBtn.title='Delete'; delCBtn.addEventListener('click',()=>{ if(confirm('Delete item?')) deleteCard(cid); });
-            actions.appendChild(editBtn); actions.appendChild(delCBtn); li.appendChild(actions);
-            if(card.type==='card') setupCardDnD(li);
-            list.appendChild(li);
+          const li = el('li','card'); li.dataset.cardId=cid;
+          if(card.type==='link'){
+            li.classList.add('link-card');
+            li.draggable = true;
+            const titleText = (card.title || '');
+            const lcTitle = titleText.toLowerCase();
+            if(lcTitle.startsWith('[git]')) li.classList.add('link-git');
+            else if(lcTitle.startsWith('[jira]')) li.classList.add('link-jira');
+            else if(lcTitle.startsWith('[jenkins]')) li.classList.add('link-jenkins');
+            else if(lcTitle.startsWith('[verstas]')) li.classList.add('link-verstas');
+          } else {
+            li.draggable = true;
+          }
+          const title = el('div','card-title');
+          if(card.type==='link' && card.url){
+            const a = document.createElement('a'); a.href=card.url; a.target='_blank'; a.rel='noopener'; a.textContent=card.title; title.appendChild(a);
+          } else { title.textContent = card.title; }
+          li.appendChild(title);
+          const actions = el('div','card-actions');
+          const editBtn = el('button'); editBtn.textContent='✎'; editBtn.title='Edit title'; editBtn.addEventListener('click',()=>{
+            const nt = prompt('Edit title', card.title); if(nt && nt!==card.title) editCard(cid, nt);
+          });
+          const delCBtn = el('button'); delCBtn.textContent='✕'; delCBtn.title='Delete'; delCBtn.addEventListener('click',()=>{ if(confirm('Delete item?')) deleteCard(cid); });
+          actions.appendChild(editBtn); actions.appendChild(delCBtn); li.appendChild(actions);
+          setupCardDnD(li);
+          list.appendChild(li);
         });
         setupListDnD(list);
         col.appendChild(list);
