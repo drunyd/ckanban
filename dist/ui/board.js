@@ -2,6 +2,13 @@
 (function(){
   const STATUSES = ['links','backlog','inProgress','onHold','complete'];
   const STORAGE_KEY = 'ckanban.board.v1';
+  const PROJECT_COLOR_PALETTE = [
+    '#2196F3','#03A9F4','#00BCD4','#009688',
+    '#4CAF50','#8BC34A','#CDDC39','#FFC107',
+    '#FF9800','#FF5722','#9C27B0','#673AB7',
+    '#3F51B5','#E91E63','#795548','#607D8B'
+  ];
+  const DEFAULT_PROJECT_COLOR = '#eceff3';
 
   function uuid(){
     return (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -43,11 +50,26 @@
     };
   })();
 
+  function isDarkColor(hex){
+    if(!hex || typeof hex !== 'string') return false;
+    const h = hex.replace('#','');
+    if(h.length!==6) return false;
+    const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+    const luminance = 0.299*r + 0.587*g + 0.114*b;
+    return luminance < 140;
+  }
+  function applyProjectHeaderColor(header, color){
+    const c = color || DEFAULT_PROJECT_COLOR;
+    header.style.background = c;
+    header.style.color = isDarkColor(c) ? '#fff' : '#1e293b';
+  }
+  function ensureProjectColor(p){ if(!p.color) p.color = DEFAULT_PROJECT_COLOR; }
+
   // Project / Card Mutations
   function addProject(name){
     if(!name.trim()) return;
     store.update(board => {
-      board.projects.push({ id:uuid(), name:name.trim(), createdAt:new Date().toISOString(), order:board.projects.length, collapsed:true, columns:{ links:[], backlog:[], inProgress:[], onHold:[], complete:[] } });
+      board.projects.push({ id:uuid(), name:name.trim(), createdAt:new Date().toISOString(), order:board.projects.length, collapsed:true, color:DEFAULT_PROJECT_COLOR, columns:{ links:[], backlog:[], inProgress:[], onHold:[], complete:[] } });
     });
   }
   function deleteProject(id){
@@ -144,15 +166,35 @@
     if(!projects.length){
       const empty = el('div','empty-msg'); empty.textContent = 'No projects yet. Add one above.'; boardRoot.appendChild(empty); return; }
     projects.sort((a,b)=> a.order-b.order).forEach(project => {
+      ensureProjectColor(project);
       const row = el('div','project-row'); row.dataset.projectId = project.id;
       if(project.collapsed) row.classList.add('collapsed');
 
       const header = el('div','project-header');
+      applyProjectHeaderColor(header, project.color);
       const h2 = el('h2'); h2.textContent = project.name; header.appendChild(h2);
       const projActions = el('div','proj-actions');
-      const collapseBtn = el('button'); collapseBtn.className='collapse-toggle'; collapseBtn.textContent = project.collapsed ? '▸' : '▾'; collapseBtn.title = project.collapsed ? 'Expand project' : 'Collapse project'; collapseBtn.setAttribute('aria-expanded', String(!project.collapsed)); collapseBtn.addEventListener('click', ()=> toggleProjectCollapse(project.id));
-      projActions.appendChild(collapseBtn);
+      const collapseBtn = el('button'); collapseBtn.className='collapse-toggle'; collapseBtn.textContent = project.collapsed ? '\u25b8' : '\u25be'; collapseBtn.title = project.collapsed ? 'Expand project' : 'Collapse project'; collapseBtn.setAttribute('aria-expanded', String(!project.collapsed)); collapseBtn.addEventListener('click', ()=> toggleProjectCollapse(project.id));
+
+      const colorWrap = el('div','color-picker-wrap');
+      const colorBtn = el('button','project-color-btn'); colorBtn.title='Project color'; colorBtn.setAttribute('aria-haspopup','true'); colorBtn.setAttribute('aria-expanded','false'); colorBtn.draggable=false; colorBtn.style.background = project.color; colorBtn.textContent='🎨';
+      colorBtn.addEventListener('mousedown', e=> e.stopPropagation());
+      colorBtn.addEventListener('click', ()=> { const open = colorWrap.classList.toggle('open'); colorBtn.setAttribute('aria-expanded', String(open)); });
+      const palette = el('div','color-palette');
+      PROJECT_COLOR_PALETTE.forEach(c => {
+        const sw = el('button','swatch'); sw.type='button'; sw.style.background=c; sw.title=c; sw.draggable=false; if(c===project.color) sw.classList.add('selected');
+        sw.addEventListener('mousedown', e=> e.stopPropagation());
+        sw.addEventListener('click', ()=> {
+          store.update(board => { const proj = board.projects.find(p=> p.id===project.id); if(!proj) return; proj.color = c; });
+        });
+        palette.appendChild(sw);
+      });
+      colorWrap.appendChild(colorBtn); colorWrap.appendChild(palette);
+
       const delBtn = el('button'); delBtn.textContent = 'Delete'; delBtn.title='Delete project'; delBtn.addEventListener('click',()=>{ if(confirm('Delete project and all its cards?')) deleteProject(project.id); });
+
+      projActions.appendChild(collapseBtn);
+      projActions.appendChild(colorWrap);
       projActions.appendChild(delBtn);
       header.appendChild(projActions);
       header.draggable = true;
@@ -200,10 +242,10 @@
           } else { title.textContent = card.title; }
           li.appendChild(title);
           const actions = el('div','card-actions');
-          const editBtn = el('button'); editBtn.textContent='✎'; editBtn.title='Edit title'; editBtn.addEventListener('click',()=>{
+          const editBtn = el('button'); editBtn.textContent='\u270e'; editBtn.title='Edit title'; editBtn.addEventListener('click',()=>{
             const nt = prompt('Edit title', card.title); if(nt && nt!==card.title) editCard(cid, nt);
           });
-          const delCBtn = el('button'); delCBtn.textContent='✕'; delCBtn.title='Delete'; delCBtn.addEventListener('click',()=>{ if(confirm('Delete item?')) deleteCard(cid); });
+          const delCBtn = el('button'); delCBtn.textContent='\u2715'; delCBtn.title='Delete'; delCBtn.addEventListener('click',()=>{ if(confirm('Delete item?')) deleteCard(cid); });
           actions.appendChild(editBtn); actions.appendChild(delCBtn); li.appendChild(actions);
           setupCardDnD(li);
           list.appendChild(li);
@@ -295,6 +337,7 @@
       try {
         const data = JSON.parse(e.target.result);
         if(!validateImport(data)){ alert('Invalid JSON schema'); return; }
+        (data.projects||[]).forEach(ensureProjectColor);
         store.set({ version:1, projects:data.projects, cards:data.cards, bookmarks:data.bookmarks||[], lastModified:new Date().toISOString() });
       } catch(err){ alert('Failed to parse JSON'); }
     };
@@ -318,7 +361,7 @@
     bookmarks.sort((a,b)=> (a.order||0) - (b.order||0)).forEach(bm => {
       const li = document.createElement('li'); li.className='bookmark'; li.dataset.id=bm.id;
       const a = document.createElement('a'); a.href=bm.url; a.target='_blank'; a.rel='noopener'; a.textContent=bm.title; li.appendChild(a);
-      const del = document.createElement('button'); del.className='delete'; del.type='button'; del.textContent='✕'; del.title='Delete bookmark'; del.addEventListener('click',()=>{ if(confirm('Delete bookmark?')) deleteBookmark(bm.id); });
+      const del = document.createElement('button'); del.className='delete'; del.type='button'; del.textContent='\u2715'; del.title='Delete bookmark'; del.addEventListener('click',()=>{ if(confirm('Delete bookmark?')) deleteBookmark(bm.id); });
       li.appendChild(del);
       bookmarksList.appendChild(li);
     });
@@ -374,15 +417,20 @@
     });
   }
 
+  function handleGlobalClickForColorPickers(e){
+    document.querySelectorAll('.color-picker-wrap.open').forEach(el => { if(!el.contains(e.target)) el.classList.remove('open'); });
+  }
+
   // Init
   async function init(){
     const existing = await loadBoard();
     if(existing){
       if(!existing.bookmarks) existing.bookmarks = [];
-      (existing.projects||[]).forEach(p=> { if(typeof p.collapsed !== 'boolean') p.collapsed = true; });
+      (existing.projects||[]).forEach(p=> { if(typeof p.collapsed !== 'boolean') p.collapsed = true; ensureProjectColor(p); });
       store.set(existing);
     } else { store.set(createEmptyBoard()); }
     wireUI();
+    document.addEventListener('click', handleGlobalClickForColorPickers);
     store.subscribe(render);
     store.subscribe(renderBookmarks);
     store.subscribe(updateToggleAllBtn);
@@ -402,7 +450,7 @@
       projectDrag = { id, startIndex };
       rowEl.classList.add('project-dragging');
       e.dataTransfer.effectAllowed = 'move';
-      try { e.dataTransfer.setData('text/plain', JSON.stringify({ type:'project', id })); } catch(_){}
+      try { e.dataTransfer.setData('text/plain', JSON.stringify({ type:'project', id })); } catch(_){ }
     });
     headerEl.addEventListener('dragend', () => {
       rowEl.classList.remove('project-dragging');
