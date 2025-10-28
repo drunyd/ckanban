@@ -1,0 +1,74 @@
+html, body { height:100%; }
+body { font-family: system-ui, Arial, sans-serif; margin:0; background:#f5f7fa; color:#222; display:flex; flex-direction:column; }
+.app-header { display:flex; flex-wrap:wrap; align-items:center; gap:1rem; padding:.75rem 1rem; background:#1e293b; color:#fff; }
+.app-header h1 { margin:0; font-size:1.25rem; }
+.actions { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+.actions input { padding:.4rem .5rem; }
+.actions button, .actions .import-label { background:#334155; color:#fff; border:none; padding:.45rem .75rem; cursor:pointer; border-radius:4px; font-size:.85rem; }
+.actions button:hover, .actions .import-label:hover { background:#475569; }
+.actions .danger { background:#7f1d1d; }
+.actions .danger:hover { background:#991b1b; }
+.import-label { display:inline-flex; align-items:center; }
+main { padding:.75rem; flex:1; overflow:auto; }
+.board-grid { display:flex; flex-direction:column; gap:1rem; }
+.project-row { background:#fff; border:1px solid #d9e0e7; border-radius:6px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.07); }
+.project-header { display:flex; align-items:center; justify-content:space-between; padding:.5rem .75rem; background:#eceff3; }
+.project-header h2 { margin:0; font-size:1rem; font-weight:600; }
+.project-header .proj-actions { display:flex; gap:.35rem; }
+.project-header button { background:#64748b; color:#fff; border:none; padding:.3rem .55rem; font-size:.7rem; border-radius:4px; cursor:pointer; }
+.project-header button:hover { background:#475569; }
+.columns { display:grid; grid-template-columns: repeat(5, 1fr); gap:.75rem; padding:.75rem; }
+.status-col { display:flex; flex-direction:column; background:#fff; border:1px solid #e0e0e0; border-radius:8px; min-height:180px; box-shadow:0 1px 3px rgba(0,0,0,.12); }
+.status-header { font-size:.7rem; letter-spacing:.5px; font-weight:600; padding:.4rem .6rem; background:#f1f3f4; border-bottom:1px solid #e0e0e0; text-transform:uppercase; color:#5f6368; display:flex; align-items:center; gap:.4rem; }
+.card-list { list-style:none; margin:0; padding:.5rem; flex:1; display:flex; flex-direction:column; gap:.4rem; }
+.card { background:#fff; border:1px solid #dadce0; border-radius:8px; padding:.55rem .65rem; font-size:.75rem; display:flex; justify-content:space-between; align-items:flex-start; gap:.5rem; box-shadow:0 1px 2px rgba(0,0,0,.1); }
+.card.dragging { opacity:.5; }
+.card-title { flex:1; font-weight:500; }
+.card-actions { display:flex; gap:.25rem; }
+.card-actions button { background:#94a3b8; border:none; color:#fff; font-size:.65rem; padding:.25rem .4rem; border-radius:3px; cursor:pointer; }
+.card-actions button:hover { background:#64748b; }
+.icon-btn.add-icon { margin:0 0 0 .25rem; width:auto; height:auto; line-height:1; font-size:.75rem; background:none; border:none; padding:0 .25rem; border-radius:0; box-shadow:none; color:var(--accent,#1a73e8); cursor:pointer; }
+.icon-btn.add-icon:hover { color: var(--accent-hover,#1558b0); text-decoration:underline; }
+.empty-msg { font-size:.65rem; color:#64748b; }
+.app-footer { padding:.5rem .75rem; text-align:center; font-size:.65rem; color:#475569; }
+::-webkit-scrollbar { width:8px; height:8px; }
+::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
+.status-col.drag-over { outline:2px dashed #2563eb; outline-offset:-2px; }
+.project-row.removing { opacity:.5; }
+
+/* --- Material-ish colorful enhancements --- */
+.status-col { border-top:3px solid var(--accent,#64748b); }
+.status-header .status-title { flex:1; }
+
+/* Per-status palette variables */
+.status-col.status-links { --accent:#6366f1; --accent-hover:#4f46e5; --header-bg:#eef2ff; --header-fg:#3730a3; --card-border:#c7d2fe; }
+.status-col.status-backlog { --accent:#3b82f6; --accent-hover:#2563eb; --header-bg:#eff6ff; --header-fg:#1e3a8a; --card-border:#bfdbfe; }
+.status-col.status-inProgress { --accent:#f59e0b; --accent-hover:#d97706; --header-bg:#fef3c7; --header-fg:#92400e; --card-border:#fcd34d; }
+.status-col.status-onHold { --accent:#8b5cf6; --accent-hover:#7c3aed; --header-bg:#f5f3ff; --header-fg:#5b21b6; --card-border:#ddd6fe; }
+.status-col.status-complete { --accent:#10b981; --accent-hover:#059669; --header-bg:#ecfdf5; --header-fg:#065f46; --card-border:#a7f3d0; }
+
+.status-col .status-header { background: var(--header-bg,#f1f3f4); color: var(--header-fg,#5f6368); }
+
+/* Card accent stripe & border color */
+.status-col .card { border-left:3px solid var(--accent,#64748b); border-color: var(--card-border,#dadce0); }
+.status-col .link-card { border-style:dashed; }
+
+/* Bookmarks Panel */
+.bookmarks-panel { background:#ffffff; border-bottom:1px solid #d9e0e7; box-shadow:0 2px 4px rgba(0,0,0,.08); overflow:hidden; max-height:0; transition:max-height .3s ease; }
+.bookmarks-panel.open { /* max-height adjusted inline via JS for smooth animation */ }
+.bookmarks-toolbar { display:flex; align-items:center; gap:.5rem; padding:.5rem .75rem; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:.75rem; }
+.bookmarks-toolbar button { background:#2563eb; color:#fff; border:none; padding:.35rem .6rem; border-radius:4px; font-size:.65rem; cursor:pointer; }
+.bookmarks-toolbar button:hover { background:#1d4ed8; }
+.bookmarks-grid { list-style:none; margin:0; padding:.6rem .75rem 1rem; display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:.5rem; }
+.bookmark { background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px; padding:.4rem .45rem .5rem; font-size:.65rem; position:relative; display:flex; flex-direction:column; gap:.25rem; }
+.bookmark a { color:#1d4ed8; text-decoration:none; word-break:break-word; }
+.bookmark a:hover { text-decoration:underline; }
+.bookmark button.delete { position:absolute; top:2px; right:4px; background:none; border:none; color:#64748b; font-size:.7rem; cursor:pointer; padding:0; }
+ .bookmark button.delete:hover { color:#dc2626; }
+
+/* Project reorder visuals */
+.project-row.project-dragging { opacity:.6; }
+.project-row.drop-before { box-shadow:0 -4px 0 0 #2563eb inset; }
+.project-row.drop-after { box-shadow:0 4px 0 0 #2563eb inset; }
+.project-header { cursor:grab; }
+.project-header:active { cursor:grabbing; }
