@@ -170,37 +170,42 @@
       const row = el('div','project-row'); row.dataset.projectId = project.id;
       if(project.collapsed) row.classList.add('collapsed');
 
-      const header = el('div','project-header');
-      applyProjectHeaderColor(header, project.color);
-      const h2 = el('h2'); h2.textContent = project.name; header.appendChild(h2);
-      const projActions = el('div','proj-actions');
-      const collapseBtn = el('button'); collapseBtn.className='collapse-toggle'; collapseBtn.textContent = project.collapsed ? '\u25b8' : '\u25be'; collapseBtn.title = project.collapsed ? 'Expand project' : 'Collapse project'; collapseBtn.setAttribute('aria-expanded', String(!project.collapsed)); collapseBtn.addEventListener('click', ()=> toggleProjectCollapse(project.id));
+       const header = el('div','project-header');
+       applyProjectHeaderColor(header, project.color);
+       header.setAttribute('aria-expanded', String(!project.collapsed));
+       const h2 = el('h2'); h2.textContent = project.name; h2.classList.add('project-title'); h2.draggable = true; header.appendChild(h2);
+       const projActions = el('div','proj-actions');
 
-      const colorWrap = el('div','color-picker-wrap');
-      const colorBtn = el('button','project-color-btn'); colorBtn.title='Project color'; colorBtn.setAttribute('aria-haspopup','true'); colorBtn.setAttribute('aria-expanded','false'); colorBtn.draggable=false; colorBtn.style.background = project.color; colorBtn.textContent='🎨';
-      colorBtn.addEventListener('mousedown', e=> e.stopPropagation());
-      colorBtn.addEventListener('click', ()=> { const open = colorWrap.classList.toggle('open'); colorBtn.setAttribute('aria-expanded', String(open)); });
-      const palette = el('div','color-palette');
-      PROJECT_COLOR_PALETTE.forEach(c => {
-        const sw = el('button','swatch'); sw.type='button'; sw.style.background=c; sw.title=c; sw.draggable=false; if(c===project.color) sw.classList.add('selected');
-        sw.addEventListener('mousedown', e=> e.stopPropagation());
-        sw.addEventListener('click', ()=> {
-          store.update(board => { const proj = board.projects.find(p=> p.id===project.id); if(!proj) return; proj.color = c; });
-        });
-        palette.appendChild(sw);
-      });
-      colorWrap.appendChild(colorBtn); colorWrap.appendChild(palette);
+       const colorWrap = el('div','color-picker-wrap');
+       const colorBtn = el('button','project-color-btn'); colorBtn.title='Project color'; colorBtn.setAttribute('aria-haspopup','true'); colorBtn.setAttribute('aria-expanded','false'); colorBtn.draggable=false; colorBtn.style.background = project.color; colorBtn.textContent='🎨';
+       colorBtn.addEventListener('mousedown', e=> e.stopPropagation());
+       colorBtn.addEventListener('click', ()=> { const open = colorWrap.classList.toggle('open'); colorBtn.setAttribute('aria-expanded', String(open)); });
+       const palette = el('div','color-palette');
+       PROJECT_COLOR_PALETTE.forEach(c => {
+         const sw = el('button','swatch'); sw.type='button'; sw.style.background=c; sw.title=c; sw.draggable=false; if(c===project.color) sw.classList.add('selected');
+         sw.addEventListener('mousedown', e=> e.stopPropagation());
+         sw.addEventListener('click', ()=> {
+           store.update(board => { const proj = board.projects.find(p=> p.id===project.id); if(!proj) return; proj.color = c; });
+         });
+         palette.appendChild(sw);
+       });
+       colorWrap.appendChild(colorBtn); colorWrap.appendChild(palette);
 
-      const delBtn = el('button'); delBtn.textContent = 'Delete'; delBtn.title='Delete project'; delBtn.addEventListener('click',()=>{ if(confirm('Delete project and all its cards?')) deleteProject(project.id); });
+       const delBtn = el('button'); delBtn.textContent = 'X'; delBtn.title='Delete project'; delBtn.addEventListener('click',()=>{ if(confirm('Delete project and all its cards?')) deleteProject(project.id); });
 
-      projActions.appendChild(collapseBtn);
-      projActions.appendChild(colorWrap);
-      projActions.appendChild(delBtn);
-      header.appendChild(projActions);
-      header.draggable = true;
-      header.title = 'Drag to reorder project';
-      row.appendChild(header);
-      setupProjectHeaderDnD(row, header);
+       projActions.appendChild(colorWrap);
+       projActions.appendChild(delBtn);
+       header.appendChild(projActions);
+
+       header.addEventListener('click', (e) => {
+         if(h2.contains(e.target)) return; // title is drag-only
+         if(colorWrap.contains(e.target) || delBtn.contains(e.target)) return; // ignore interactive buttons/palette
+         toggleProjectCollapse(project.id);
+       });
+
+       h2.title = 'Drag to reorder project';
+       row.appendChild(header);
+       setupProjectHeaderDnD(row, h2);
 
       const colsWrap = el('div','columns');
       STATUSES.forEach(status => {
