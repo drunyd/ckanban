@@ -47,7 +47,7 @@
   function addProject(name){
     if(!name.trim()) return;
     store.update(board => {
-      board.projects.push({ id:uuid(), name:name.trim(), createdAt:new Date().toISOString(), order:board.projects.length, columns:{ links:[], backlog:[], inProgress:[], onHold:[], complete:[] } });
+      board.projects.push({ id:uuid(), name:name.trim(), createdAt:new Date().toISOString(), order:board.projects.length, collapsed:true, columns:{ links:[], backlog:[], inProgress:[], onHold:[], complete:[] } });
     });
   }
   function deleteProject(id){
@@ -105,6 +105,19 @@
     });
   }
 
+  // Collapse / Expand Mutations
+  function toggleProjectCollapse(id){
+    store.update(board => {
+      const proj = board.projects.find(p=> p.id===id); if(!proj) return;
+      proj.collapsed = !proj.collapsed;
+    });
+  }
+  function setAllProjectsCollapsed(collapsed){
+    store.update(board => {
+      board.projects.forEach(p=> { p.collapsed = collapsed; });
+    });
+  }
+
   // Bookmark Mutations
   function addBookmark(name, url){
     if(!name.trim() || !url.trim()) return;
@@ -132,10 +145,13 @@
       const empty = el('div','empty-msg'); empty.textContent = 'No projects yet. Add one above.'; boardRoot.appendChild(empty); return; }
     projects.sort((a,b)=> a.order-b.order).forEach(project => {
       const row = el('div','project-row'); row.dataset.projectId = project.id;
+      if(project.collapsed) row.classList.add('collapsed');
 
       const header = el('div','project-header');
       const h2 = el('h2'); h2.textContent = project.name; header.appendChild(h2);
       const projActions = el('div','proj-actions');
+      const collapseBtn = el('button'); collapseBtn.className='collapse-toggle'; collapseBtn.textContent = project.collapsed ? '▸' : '▾'; collapseBtn.title = project.collapsed ? 'Expand project' : 'Collapse project'; collapseBtn.setAttribute('aria-expanded', String(!project.collapsed)); collapseBtn.addEventListener('click', ()=> toggleProjectCollapse(project.id));
+      projActions.appendChild(collapseBtn);
       const delBtn = el('button'); delBtn.textContent = 'Delete'; delBtn.title='Delete project'; delBtn.addEventListener('click',()=>{ if(confirm('Delete project and all its cards?')) deleteProject(project.id); });
       projActions.appendChild(delBtn);
       header.appendChild(projActions);
@@ -313,6 +329,17 @@
     }
   }
 
+  function updateToggleAllBtn(){
+    const btn = document.getElementById('toggleAllProjectsBtn');
+    if(!btn) return;
+    const board = store.get();
+    if(!board.projects.length){ btn.disabled=true; btn.textContent='Expand All'; btn.setAttribute('aria-expanded','false'); return; }
+    btn.disabled=false;
+    const allCollapsed = board.projects.every(p=> p.collapsed);
+    btn.textContent = allCollapsed ? 'Expand All' : 'Collapse All';
+    btn.setAttribute('aria-expanded', String(!allCollapsed));
+  }
+
   // UI event wiring
   function wireUI(){
     document.getElementById('addProjectBtn').addEventListener('click', () => {
@@ -328,6 +355,12 @@
     if(addBookmarkBtn) addBookmarkBtn.addEventListener('click', ()=>{
       const name = prompt('Bookmark name'); if(!name) return; const url = prompt('Bookmark URL (https://...)'); if(!url) return; addBookmark(name, url);
     });
+    const toggleAllBtn = document.getElementById('toggleAllProjectsBtn');
+    if(toggleAllBtn) toggleAllBtn.addEventListener('click', ()=>{
+      const board = store.get();
+      const allCollapsed = board.projects.every(p=> p.collapsed);
+      setAllProjectsCollapsed(!allCollapsed);
+    });
   }
 
   // Init
@@ -335,13 +368,16 @@
     const existing = await loadBoard();
     if(existing){
       if(!existing.bookmarks) existing.bookmarks = [];
+      (existing.projects||[]).forEach(p=> { if(typeof p.collapsed !== 'boolean') p.collapsed = true; });
       store.set(existing);
     } else { store.set(createEmptyBoard()); }
     wireUI();
     store.subscribe(render);
     store.subscribe(renderBookmarks);
+    store.subscribe(updateToggleAllBtn);
     render();
     renderBookmarks();
+    updateToggleAllBtn();
   }
 
   // Project row drag & drop (header bar)
