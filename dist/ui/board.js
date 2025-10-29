@@ -1,4 +1,4 @@
-// CKanban - plain JS implementation
+// CKanban - plain JS implementation with per-project notes
 (function(){
   const STATUSES = ['links','backlog','inProgress','onHold','complete'];
   const STORAGE_KEY = 'ckanban.board.v1';
@@ -9,6 +9,9 @@
     '#3F51B5','#E91E63','#795548','#607D8B'
   ];
   const DEFAULT_PROJECT_COLOR = '#eceff3';
+
+  // UI state for editing notes (kept outside board model so rerenders preserve drafts)
+  const editingNotes = {}; // projectId -> { draft: string }
 
   function uuid(){
     return (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -64,12 +67,20 @@
     header.style.color = isDarkColor(c) ? '#fff' : '#1e293b';
   }
   function ensureProjectColor(p){ if(!p.color) p.color = DEFAULT_PROJECT_COLOR; }
+  function ensureProjectNotes(p){
+    if(!p.notes || typeof p.notes !== 'object'){
+      p.notes = { text:'', updatedAt:null };
+    } else {
+      if(typeof p.notes.text !== 'string') p.notes.text='';
+      if(!p.notes.updatedAt) p.notes.updatedAt=null;
+    }
+  }
 
   // Project / Card Mutations
   function addProject(name){
     if(!name.trim()) return;
     store.update(board => {
-      board.projects.push({ id:uuid(), name:name.trim(), createdAt:new Date().toISOString(), order:board.projects.length, collapsed:true, color:DEFAULT_PROJECT_COLOR, columns:{ links:[], backlog:[], inProgress:[], onHold:[], complete:[] } });
+      board.projects.push({ id:uuid(), name:name.trim(), createdAt:new Date().toISOString(), order:board.projects.length, collapsed:true, color:DEFAULT_PROJECT_COLOR, columns:{ links:[], backlog:[], inProgress:[], onHold:[], complete:[] }, notes:{ text:'', updatedAt:null } });
     });
   }
   function deleteProject(id){
@@ -79,6 +90,7 @@
       allIds.forEach(cid => { delete board.cards[cid]; });
       board.projects = board.projects.filter(p=>p.id!==id);
       board.projects.forEach((p,i)=> p.order=i);
+      delete editingNotes[id];
     });
   }
   function addCard(projectId, title){
@@ -126,6 +138,15 @@
       if(board.cards[cardId]) { board.cards[cardId].title = newTitle.trim(); board.cards[cardId].updatedAt = new Date().toISOString(); }
     });
   }
+  function updateProjectNotes(projectId, text){
+    store.update(board => {
+      const proj = board.projects.find(p=> p.id===projectId); if(!proj) return;
+      ensureProjectNotes(proj);
+      proj.notes.text = text;
+      proj.notes.updatedAt = new Date().toISOString();
+    });
+    delete editingNotes[projectId]; // close editor after save
+  }
 
   // Collapse / Expand Mutations
   function toggleProjectCollapse(id){
@@ -160,6 +181,53 @@
 
   function el(tag, cls){ const e=document.createElement(tag); if(cls) e.className=cls; return e; }
 
+  function buildNotesSection(project){
+    ensureProjectNotes(project);
+    const container = el('div','project-notes');
+    container.dataset.projectId = project.id;
+    const notesObj = project.notes;
+    const editState = editingNotes[project.id];
+
+    const header = el('div','notes-header');
+    const tSpan = el('span','notes-title'); tSpan.textContent='Project Notes'; header.appendChild(tSpan);
+    const actions = el('div','notes-actions');
+    const editBtn = el('button','notes-edit-btn'); editBtn.type='button'; editBtn.textContent = editState ? 'Cancel' : 'Edit'; editBtn.title = editState ? 'Cancel editing' : 'Edit notes';
+    editBtn.addEventListener('click', () => {
+      if(editState){ delete editingNotes[project.id]; render(); }
+      else { editingNotes[project.id] = { draft: notesObj.text }; render(); }
+    });
+    actions.appendChild(editBtn); header.appendChild(actions);
+    container.appendChild(header);
+
+    if(editState){
+      const editWrap = el('div','notes-edit');
+      const ta = el('textarea','notes-textarea');
+      ta.value = editState.draft;
+      ta.placeholder='Write notes...';
+      const buttons = el('div','notes-buttons');
+      const saveBtn = el('button','notes-save-btn'); saveBtn.type='button'; saveBtn.textContent='Save'; saveBtn.addEventListener('click', () => { updateProjectNotes(project.id, ta.value.trim()); });
+      const cancelBtn = el('button','notes-cancel-btn'); cancelBtn.type='button'; cancelBtn.textContent='Cancel'; cancelBtn.addEventListener('click', () => { delete editingNotes[project.id]; render(); });
+      const statusSpan = el('span','notes-status');
+      ta.addEventListener('input', () => {
+        editingNotes[project.id].draft = ta.value;
+        statusSpan.textContent = (ta.value !== notesObj.text) ? 'Unsaved changes' : '';
+      });
+      ta.addEventListener('keydown', e => { if((e.ctrlKey||e.metaKey) && e.key==='Enter'){ e.preventDefault(); updateProjectNotes(project.id, ta.value.trim()); } });
+      buttons.appendChild(saveBtn); buttons.appendChild(cancelBtn); buttons.appendChild(statusSpan);
+      editWrap.appendChild(ta); editWrap.appendChild(buttons);
+      container.appendChild(editWrap);
+    } else {
+      const view = el('div','notes-view');
+      if(notesObj.text){ view.textContent = notesObj.text; }
+      else { view.textContent='No notes yet.'; view.classList.add('empty-msg'); }
+      container.appendChild(view);
+    }
+    const meta = el('div','notes-meta');
+    if(notesObj.updatedAt){ meta.textContent = 'Last updated: ' + new Date(notesObj.updatedAt).toLocaleString(); }
+    container.appendChild(meta);
+    return container;
+  }
+
   function render(){
     const { projects, cards } = store.get();
     boardRoot.innerHTML='';
@@ -167,6 +235,7 @@
       const empty = el('div','empty-msg'); empty.textContent = 'No projects yet. Add one above.'; boardRoot.appendChild(empty); return; }
     projects.sort((a,b)=> a.order-b.order).forEach(project => {
       ensureProjectColor(project);
+      ensureProjectNotes(project);
       const row = el('div','project-row'); row.dataset.projectId = project.id;
       if(project.collapsed) row.classList.add('collapsed');
 
@@ -177,7 +246,7 @@
        const projActions = el('div','proj-actions');
 
        const colorWrap = el('div','color-picker-wrap');
-       const colorBtn = el('button','project-color-btn'); colorBtn.title='Project color'; colorBtn.setAttribute('aria-haspopup','true'); colorBtn.setAttribute('aria-expanded','false'); colorBtn.draggable=false; colorBtn.style.background = project.color; colorBtn.textContent='🎨';
+       const colorBtn = el('button','project-color-btn'); colorBtn.title='Project color'; colorBtn.setAttribute('aria-haspopup','true'); colorBtn.setAttribute('aria-expanded','false'); colorBtn.draggable=false; colorBtn.style.background = project.color; colorBtn.textContent='\ud83c\udfa8';
        colorBtn.addEventListener('mousedown', e=> e.stopPropagation());
        colorBtn.addEventListener('click', ()=> { const open = colorWrap.classList.toggle('open'); colorBtn.setAttribute('aria-expanded', String(open)); });
        const palette = el('div','color-palette');
@@ -260,6 +329,8 @@
         colsWrap.appendChild(col);
       });
       row.appendChild(colsWrap);
+      // Notes section appended after columns
+      row.appendChild(buildNotesSection(project));
       boardRoot.appendChild(row);
     });
   }
@@ -321,6 +392,7 @@
   // Export / Import
   function exportJSON(){
     const board = store.get();
+    // Adding notes to export transparently (older exports without notes still import fine)
     const payload = { schema:'kanban.v1', exportedAt:new Date().toISOString(), projects: board.projects, cards: board.cards, bookmarks: board.bookmarks };
     const text = JSON.stringify(payload, null, 2);
     const blob = new Blob([text], { type:'application/json' });
@@ -342,7 +414,7 @@
       try {
         const data = JSON.parse(e.target.result);
         if(!validateImport(data)){ alert('Invalid JSON schema'); return; }
-        (data.projects||[]).forEach(ensureProjectColor);
+        (data.projects||[]).forEach(p=> { ensureProjectColor(p); ensureProjectNotes(p); });
         store.set({ version:1, projects:data.projects, cards:data.cards, bookmarks:data.bookmarks||[], lastModified:new Date().toISOString() });
       } catch(err){ alert('Failed to parse JSON'); }
     };
@@ -431,7 +503,7 @@
     const existing = await loadBoard();
     if(existing){
       if(!existing.bookmarks) existing.bookmarks = [];
-      (existing.projects||[]).forEach(p=> { if(typeof p.collapsed !== 'boolean') p.collapsed = true; ensureProjectColor(p); });
+      (existing.projects||[]).forEach(p=> { if(typeof p.collapsed !== 'boolean') p.collapsed = true; ensureProjectColor(p); ensureProjectNotes(p); });
       store.set(existing);
     } else { store.set(createEmptyBoard()); }
     wireUI();
