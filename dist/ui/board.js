@@ -12,6 +12,7 @@
 
   // UI state for editing notes (kept outside board model so rerenders preserve drafts)
   const editingNotes = {}; // projectId -> { draft: string }
+  const editingProjectName = {}; // projectId -> { draft: string }
 
   function uuid(){
     return (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -90,7 +91,7 @@
       allIds.forEach(cid => { delete board.cards[cid]; });
       board.projects = board.projects.filter(p=>p.id!==id);
       board.projects.forEach((p,i)=> p.order=i);
-      delete editingNotes[id];
+      delete editingNotes[id]; delete editingProjectName[id];
     });
   }
   function addCard(projectId, title){
@@ -181,6 +182,13 @@
 
   function el(tag, cls){ const e=document.createElement(tag); if(cls) e.className=cls; return e; }
 
+  function commitProjectNameEdit(projectId, value){
+    const newName = (value||'').trim();
+    if(!newName){ delete editingProjectName[projectId]; render(); return; }
+    store.update(board => { const proj = board.projects.find(p=> p.id===projectId); if(!proj) return; proj.name = newName; });
+    delete editingProjectName[projectId];
+  }
+
   function buildNotesSection(project){
     ensureProjectNotes(project);
     const container = el('div','project-notes');
@@ -242,7 +250,23 @@
        const header = el('div','project-header');
        applyProjectHeaderColor(header, project.color);
        header.setAttribute('aria-expanded', String(!project.collapsed));
-       const h2 = el('h2'); h2.textContent = project.name; h2.classList.add('project-title'); h2.draggable = true; header.appendChild(h2);
+        const h2 = el('h2'); h2.classList.add('project-title'); h2.draggable = true;
+        const nameEditState = editingProjectName[project.id];
+        if(nameEditState){
+          const nameForm = el('div','project-name-edit');
+          const nameInput = el('input'); nameInput.type='text'; nameInput.value = nameEditState.draft; nameInput.placeholder='Project name'; nameInput.className='project-name-input';
+          const saveBtn = el('button'); saveBtn.type='button'; saveBtn.textContent='Save'; saveBtn.title='Save name'; saveBtn.className='project-name-save-btn';
+          const cancelBtn = el('button'); cancelBtn.type='button'; cancelBtn.textContent='Cancel'; cancelBtn.title='Cancel'; cancelBtn.className='project-name-cancel-btn';
+          nameInput.addEventListener('input', () => { editingProjectName[project.id].draft = nameInput.value; });
+          nameInput.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); commitProjectNameEdit(project.id, nameInput.value); } else if(e.key==='Escape'){ e.preventDefault(); delete editingProjectName[project.id]; render(); } });
+          saveBtn.addEventListener('click', () => { commitProjectNameEdit(project.id, nameInput.value); });
+          cancelBtn.addEventListener('click', () => { delete editingProjectName[project.id]; render(); });
+          nameForm.appendChild(nameInput); nameForm.appendChild(saveBtn); nameForm.appendChild(cancelBtn); h2.appendChild(nameForm);
+          setTimeout(()=> nameInput.focus(), 0);
+        } else {
+          h2.textContent = project.name;
+        }
+        header.appendChild(h2);
        const projActions = el('div','proj-actions');
 
        const colorWrap = el('div','color-picker-wrap');
@@ -262,7 +286,9 @@
 
        const delBtn = el('button'); delBtn.textContent = 'X'; delBtn.title='Delete project'; delBtn.addEventListener('click',()=>{ if(confirm('Delete project and all its cards?')) deleteProject(project.id); });
 
-       projActions.appendChild(colorWrap);
+        const nameEditBtn = el('button'); nameEditBtn.textContent='\u270e'; nameEditBtn.title='Edit project name'; nameEditBtn.addEventListener('click', (e)=> { e.stopPropagation(); const st = editingProjectName[project.id]; if(st){ delete editingProjectName[project.id]; } else { editingProjectName[project.id] = { draft: project.name }; } render(); });
+        projActions.appendChild(nameEditBtn);
+        projActions.appendChild(colorWrap);
        projActions.appendChild(delBtn);
        header.appendChild(projActions);
 
