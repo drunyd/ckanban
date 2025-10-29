@@ -3,10 +3,16 @@
   const STATUSES = ['links','backlog','inProgress','onHold','complete'];
   const STORAGE_KEY = 'ckanban.board.v1';
   const PROJECT_COLOR_PALETTE = [
+    // Vibrant set
     '#2196F3','#03A9F4','#00BCD4','#009688',
     '#4CAF50','#8BC34A','#CDDC39','#FFC107',
     '#FF9800','#FF5722','#9C27B0','#673AB7',
-    '#3F51B5','#E91E63','#795548','#607D8B'
+    '#3F51B5','#E91E63','#795548','#607D8B',
+    // Desaturated / pastel set
+    '#AEC7D8','#A8D5BA','#D9E7A8','#F6D7A7',
+    '#F2B8A0','#E7A9C4','#CDB5E8','#B3C5E8',
+    '#B7D4F0','#B2E0E2','#B7E6D7','#D7E9F7',
+    '#E4D9F7','#F3E5D8','#D9D9D9','#C8D1DA'
   ];
   const DEFAULT_PROJECT_COLOR = '#eceff3';
 
