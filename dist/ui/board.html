@@ -30,8 +30,16 @@
     <div id="boardRoot" class="board-grid"></div>
   </main>
   <footer class="app-footer">
-    <small>Data stored locally. Drag cards between columns. Export to backup.</small>
+  <small>Data stored locally. Drag cards between columns. Export to backup.</small>
   </footer>
+  <!-- Quick Bookmarks Modal -->
+  <div id="quickBookmarksModal" class="quick-bm-modal" aria-hidden="true" role="dialog" aria-label="Quick Bookmarks">
+    <div class="qb-inner">
+      <input id="quickBookmarksInput" type="text" placeholder="Type to search bookmarks..." autocomplete="off" />
+      <ul id="quickBookmarksResults" class="qb-results" role="listbox"></ul>
+      <div class="qb-hint">Ctrl+B to open • Enter opens top result • Esc closes</div>
+    </div>
+  </div>
   <script src="board.js"></script>
-</body>
-</html>
+ </body>
+ </html>

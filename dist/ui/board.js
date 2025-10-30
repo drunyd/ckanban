@@ -546,6 +546,96 @@
     render();
     renderBookmarks();
     updateToggleAllBtn();
+    setupQuickBookmarksModal();
+  }
+
+  // Quick Bookmarks Modal Logic
+  function setupQuickBookmarksModal(){
+    const modal = document.getElementById('quickBookmarksModal');
+    const input = document.getElementById('quickBookmarksInput');
+    const results = document.getElementById('quickBookmarksResults');
+    if(!modal || !input || !results) return;
+
+    function openModal(){
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden','false');
+      input.value='';
+      input.focus();
+      renderResults();
+    }
+    function closeModal(){
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden','true');
+    }
+    function isOpen(){ return modal.classList.contains('open'); }
+
+    function scoreBookmark(query, title){
+      // basic fuzzy scoring: sequential char match and includes
+      if(!query) return 0;
+      const q = query.toLowerCase();
+      const t = title.toLowerCase();
+      if(t.includes(q)) return q.length * 2; // boost substring
+      // sequential fuzzy
+      let qi=0, ti=0, hits=0;
+      while(qi<q.length && ti<t.length){
+        if(q[qi]===t[ti]){ hits++; qi++; }
+        ti++;
+      }
+      return hits;
+    }
+
+    function renderResults(){
+      const { bookmarks = [] } = store.get();
+      results.innerHTML='';
+      const query = input.value.trim();
+      let items = bookmarks.map(b=> ({ b, score: query ? scoreBookmark(query, b.title) : 0 }));
+      if(query){ items = items.filter(it => it.score > 0); }
+      items.sort((a,b)=> b.score - a.score || a.b.order - b.b.order);
+      if(!items.length){
+        const li = document.createElement('li'); li.className='qb-empty'; li.textContent = query ? 'No matches' : 'No bookmarks yet'; results.appendChild(li); return;
+      }
+      items.forEach((it, idx) => {
+        const li = document.createElement('li'); li.dataset.id = it.b.id; li.setAttribute('role','option');
+        if(idx===0) li.classList.add('active');
+        const spanTitle = document.createElement('span'); spanTitle.textContent = it.b.title; li.appendChild(spanTitle);
+        const small = document.createElement('small'); small.textContent = it.b.url; li.appendChild(small);
+        li.addEventListener('click', ()=> openBookmark(it.b));
+        results.appendChild(li);
+      });
+    }
+
+    function openBookmark(b){ if(!b) return; window.open(b.url,'_blank','noopener'); }
+
+    input.addEventListener('input', renderResults);
+    input.addEventListener('keydown', e => {
+      if(e.key==='Escape'){ e.preventDefault(); closeModal(); return; }
+      if(e.key==='Enter'){ e.preventDefault(); const first = results.querySelector('li.active'); if(first){ const id = first.dataset.id; const { bookmarks=[] } = store.get(); const target = bookmarks.find(x=> x.id===id); openBookmark(target); closeModal(); } return; }
+      // simple up/down selection
+      if(e.key==='ArrowDown' || e.key==='ArrowUp'){
+        e.preventDefault();
+        const all = Array.from(results.querySelectorAll('li[role="option"]'));
+        if(!all.length) return;
+        let idx = all.findIndex(li => li.classList.contains('active'));
+        if(idx===-1) idx=0; else {
+          idx += (e.key==='ArrowDown'?1:-1);
+          if(idx<0) idx = all.length-1; if(idx>=all.length) idx=0;
+        }
+        all.forEach(li=> li.classList.remove('active'));
+        all[idx].classList.add('active');
+        all[idx].scrollIntoView({ block:'nearest' });
+      }
+    });
+
+    document.addEventListener('keydown', e => {
+      if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='b'){ e.preventDefault(); if(isOpen()) closeModal(); else openModal(); }
+      else if(e.key==='Escape' && isOpen()){ closeModal(); }
+    });
+
+    // Re-render results whenever bookmarks change
+    store.subscribe(()=> { if(isOpen()) renderResults(); });
+
+    // Close on outside click
+    modal.addEventListener('mousedown', e => { if(e.target===modal) closeModal(); });
   }
 
   // Project row drag & drop (header bar)
