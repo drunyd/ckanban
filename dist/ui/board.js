@@ -430,8 +430,47 @@
     const blob = new Blob([text], { type:'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ckanban-export.json'; a.click();
     setTimeout(()=> URL.revokeObjectURL(a.href), 5000);
-  }
-  function validateImport(data){
+   }
+
+   function exportPDFReport(){
+     const board = store.get();
+     const wrapper = document.createElement('div');
+     wrapper.className = 'pdf-report-root';
+     const style = document.createElement('style');
+     style.textContent = `@media print { body * { visibility:hidden; } .pdf-report-root, .pdf-report-root * { visibility:visible; } .pdf-report-root { position:relative; } } .pdf-report-root { font-family: Arial, sans-serif; padding:16px; } .pdf-project { margin-bottom:32px; page-break-inside:avoid; } .pdf-project h2 { margin:0 0 4px; font-size:18px; } .pdf-notes { white-space:pre-wrap; background:#f5f5f5; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:12px; } .pdf-section-title { font-weight:bold; margin-top:12px; font-size:13px; } ul.pdf-cards { margin:4px 0 12px; padding-left:18px; } ul.pdf-cards li { font-size:12px; margin:2px 0; } .pdf-meta { font-size:10px; color:#555; margin-top:4px; }`;
+     document.body.appendChild(style);
+     board.projects.sort((a,b)=> a.order-b.order).forEach(project => {
+       const projDiv = document.createElement('div'); projDiv.className='pdf-project';
+       const h = document.createElement('h2'); h.textContent = project.name || 'Untitled Project'; projDiv.appendChild(h);
+       // Notes
+       const notesTitle = document.createElement('div'); notesTitle.className='pdf-section-title'; notesTitle.textContent='Notes'; projDiv.appendChild(notesTitle);
+       const notesDiv = document.createElement('div'); notesDiv.className='pdf-notes'; notesDiv.textContent = (project.notes && project.notes.text) ? project.notes.text : '(No notes)'; projDiv.appendChild(notesDiv);
+       // Links
+       const linksTitle = document.createElement('div'); linksTitle.className='pdf-section-title'; linksTitle.textContent='Links'; projDiv.appendChild(linksTitle);
+       const linksList = document.createElement('ul'); linksList.className='pdf-cards';
+       project.columns.links.forEach(cid => { const card = board.cards[cid]; if(!card) return; const li=document.createElement('li'); li.textContent = card.title + (card.url?` (${card.url})`:''); linksList.appendChild(li); });
+       if(!project.columns.links.length){ const li=document.createElement('li'); li.textContent='(None)'; linksList.appendChild(li); }
+       projDiv.appendChild(linksList);
+       // Kanban columns
+       ['backlog','inProgress','onHold','complete'].forEach(colKey => {
+         const colTitle = document.createElement('div'); colTitle.className='pdf-section-title'; colTitle.textContent = statusLabel(colKey); projDiv.appendChild(colTitle);
+         const list = document.createElement('ul'); list.className='pdf-cards';
+         const ids = project.columns[colKey];
+         ids.forEach(cid => { const card = board.cards[cid]; if(!card) return; const li=document.createElement('li'); li.textContent = card.title; list.appendChild(li); });
+         if(!ids.length){ const li=document.createElement('li'); li.textContent='(Empty)'; list.appendChild(li); }
+         projDiv.appendChild(list);
+       });
+       const meta = document.createElement('div'); meta.className='pdf-meta'; meta.textContent = 'Created: ' + new Date(project.createdAt).toLocaleDateString(); projDiv.appendChild(meta);
+       wrapper.appendChild(projDiv);
+     });
+     // Remove any existing old report first
+     document.querySelectorAll('.pdf-report-root').forEach(el => el.remove());
+     document.body.appendChild(wrapper);
+     // Trigger print (user can choose Save as PDF)
+     setTimeout(()=> { window.print(); setTimeout(()=> { wrapper.remove(); style.remove(); }, 1000); }, 50);
+   }
+
+   function validateImport(data){
     if(!data || data.schema!=='kanban.v1') return false;
     if(!Array.isArray(data.projects) || typeof data.cards !== 'object') return false;
     for(const p of data.projects){
@@ -514,6 +553,8 @@
     document.getElementById('importFile').addEventListener('change', e => { const f=e.target.files[0]; if(f) importJSON(f); e.target.value=''; });
     document.getElementById('clearBtn').addEventListener('click', clearAll);
     if(toggleBookmarksBtn) toggleBookmarksBtn.addEventListener('click', toggleBookmarks);
+    const pdfBtn = document.getElementById('pdfBtn');
+    if(pdfBtn) pdfBtn.addEventListener('click', exportPDFReport);
     const addBookmarkBtn = document.getElementById('addBookmarkBtn');
     if(addBookmarkBtn) addBookmarkBtn.addEventListener('click', ()=>{
       const name = prompt('Bookmark name'); if(!name) return; const url = prompt('Bookmark URL (https://...)'); if(!url) return; addBookmark(name, url);
