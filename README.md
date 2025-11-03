@@ -261,32 +261,14 @@ A: Use Export JSON regularly; store off‑device if important.
 A: No. Zero telemetry by design.
 
 ---
-## License
-Choose an OSI‑approved license (e.g. MIT, Apache‑2.0) and add `LICENSE` file. Until then, all rights reserved by default. Contributors should know the license terms before submitting PRs.
-
----
 ## Acknowledgements
 - Icon & color inspirations from modern material design palettes.
 - Community suggestions will be credited in CHANGELOG / README as features land.
 
 ---
-## Maintainers
-Add yourself as maintainer here:
-```
-- @your-user (Creator)
-```
 
 ---
 ## Disclaimer
 CKanban is not affiliated with Atlassian, Jira, GitHub, or any other vendor whose names might appear in user‑entered link titles. Use at your own risk.
 
 ---
-## Badges (Optional)
-You can later add badges once CI / release pipelines exist:
-```
-![Build Status](https://img.shields.io/badge/build-passing-success)
-![Version](https://img.shields.io/badge/version-0.5.0-blue)
-![License](https://img.shields.io/badge/license-TBD-lightgrey)
-```
-
-Enjoy focusing on your flow with every new tab.
