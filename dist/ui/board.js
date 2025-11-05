@@ -83,6 +83,20 @@
     }
   }
 
+  // New helper: ensure per-card status change timestamp
+  function ensureCardStatus(card){
+    if(card && !card.statusChangedAt){
+      // Prefer updatedAt if present else createdAt
+      card.statusChangedAt = card.updatedAt || card.createdAt || new Date().toISOString();
+    }
+  }
+  function formatStatusTimestamp(iso){
+    if(!iso) return '';
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2,'0');
+    return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
   // Project / Card Mutations
   function addProject(name){
     if(!name.trim()) return;
@@ -105,7 +119,8 @@
     store.update(board => {
       const proj = board.projects.find(p=>p.id===projectId); if(!proj) return;
       const id = uuid();
-      board.cards[id] = { id, projectId, title:title.trim(), type:'card', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() };
+      const now = new Date().toISOString();
+      board.cards[id] = { id, projectId, title:title.trim(), type:'card', createdAt:now, updatedAt:now, statusChangedAt:now };
       proj.columns.backlog.push(id);
     });
   }
@@ -114,7 +129,8 @@
     store.update(board => {
       const proj = board.projects.find(p=>p.id===projectId); if(!proj) return;
       const id = uuid();
-      board.cards[id] = { id, projectId, title:name.trim(), url:url.trim(), type:'link', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() };
+      const now = new Date().toISOString();
+      board.cards[id] = { id, projectId, title:name.trim(), url:url.trim(), type:'link', createdAt:now, updatedAt:now, statusChangedAt:now };
       proj.columns.links.push(id);
     });
   }
@@ -136,13 +152,17 @@
       fromArr.splice(idx,1);
       const insertIndex = (typeof targetIndex === 'number' && targetIndex>=0 && targetIndex<=toArr.length) ? targetIndex : toArr.length;
       toArr.splice(insertIndex,0,cardId);
-      if(board.cards[cardId]) board.cards[cardId].updatedAt = new Date().toISOString();
+      if(board.cards[cardId]) {
+        const now = new Date().toISOString();
+        board.cards[cardId].updatedAt = now; // preserve existing updated semantics
+        board.cards[cardId].statusChangedAt = now; // new field for move timestamp
+      }
     });
   }
   function editCard(cardId, newTitle){
     if(!newTitle.trim()) return;
     store.update(board => {
-      if(board.cards[cardId]) { board.cards[cardId].title = newTitle.trim(); board.cards[cardId].updatedAt = new Date().toISOString(); }
+      if(board.cards[cardId]) { board.cards[cardId].title = newTitle.trim(); board.cards[cardId].updatedAt = new Date().toISOString(); /* do NOT change statusChangedAt here */ }
     });
   }
   function updateProjectNotes(projectId, text){
@@ -276,7 +296,7 @@
        const projActions = el('div','proj-actions');
 
        const colorWrap = el('div','color-picker-wrap');
-       const colorBtn = el('button','project-color-btn'); colorBtn.title='Project color'; colorBtn.setAttribute('aria-haspopup','true'); colorBtn.setAttribute('aria-expanded','false'); colorBtn.draggable=false; colorBtn.style.background = project.color; colorBtn.textContent='\ud83c\udfa8';
+       const colorBtn = el('button','project-color-btn'); colorBtn.title='Project color'; colorBtn.setAttribute('aria-haspopup','true'); colorBtn.setAttribute('aria-expanded','false'); colorBtn.draggable=false; colorBtn.style.background = project.color; colorBtn.textContent='🎨';
        colorBtn.addEventListener('mousedown', e=> e.stopPropagation());
        colorBtn.addEventListener('click', ()=> { const open = colorWrap.classList.toggle('open'); colorBtn.setAttribute('aria-expanded', String(open)); });
        const palette = el('div','color-palette');
@@ -292,7 +312,7 @@
 
        const delBtn = el('button'); delBtn.textContent = 'X'; delBtn.title='Delete project'; delBtn.addEventListener('click',()=>{ if(confirm('Delete project and all its cards?')) deleteProject(project.id); });
 
-        const nameEditBtn = el('button'); nameEditBtn.textContent='\u270e'; nameEditBtn.title='Edit project name'; nameEditBtn.addEventListener('click', (e)=> { e.stopPropagation(); const st = editingProjectName[project.id]; if(st){ delete editingProjectName[project.id]; } else { editingProjectName[project.id] = { draft: project.name }; } render(); });
+        const nameEditBtn = el('button'); nameEditBtn.textContent='✎'; nameEditBtn.title='Edit project name'; nameEditBtn.addEventListener('click', (e)=> { e.stopPropagation(); const st = editingProjectName[project.id]; if(st){ delete editingProjectName[project.id]; } else { editingProjectName[project.id] = { draft: project.name }; } render(); });
         projActions.appendChild(nameEditBtn);
         projActions.appendChild(colorWrap);
        projActions.appendChild(delBtn);
@@ -329,6 +349,7 @@
         if(!ids.length){ const placeholder = el('div','empty-msg'); placeholder.textContent='Empty'; list.appendChild(placeholder); }
         ids.forEach(cid => {
           const card = cards[cid]; if(!card) return;
+          ensureCardStatus(card);
           const li = el('li','card'); li.dataset.cardId=cid;
           if(card.type==='link'){
             li.classList.add('link-card');
@@ -342,17 +363,23 @@
           } else {
             li.draggable = true;
           }
+          const head = el('div','card-head');
+          const tsEl = el('div','card-timestamp');
+          tsEl.textContent = formatStatusTimestamp(card.statusChangedAt);
+          head.appendChild(tsEl);
+          const actions = el('div','card-actions');
+          const editBtn = el('button'); editBtn.textContent='✎'; editBtn.title='Edit title'; editBtn.addEventListener('click',()=>{
+            const nt = prompt('Edit title', card.title); if(nt && nt!==card.title) editCard(cid, nt);
+          });
+          const delCBtn = el('button'); delCBtn.textContent='✕'; delCBtn.title='Delete'; delCBtn.addEventListener('click',()=>{ if(confirm('Delete item?')) deleteCard(cid); });
+          actions.appendChild(editBtn); actions.appendChild(delCBtn);
+          head.appendChild(actions);
+          li.appendChild(head);
           const title = el('div','card-title');
           if(card.type==='link' && card.url){
             const a = document.createElement('a'); a.href=card.url; a.target='_blank'; a.rel='noopener'; a.textContent=card.title; title.appendChild(a);
           } else { title.textContent = card.title; }
           li.appendChild(title);
-          const actions = el('div','card-actions');
-          const editBtn = el('button'); editBtn.textContent='\u270e'; editBtn.title='Edit title'; editBtn.addEventListener('click',()=>{
-            const nt = prompt('Edit title', card.title); if(nt && nt!==card.title) editCard(cid, nt);
-          });
-          const delCBtn = el('button'); delCBtn.textContent='\u2715'; delCBtn.title='Delete'; delCBtn.addEventListener('click',()=>{ if(confirm('Delete item?')) deleteCard(cid); });
-          actions.appendChild(editBtn); actions.appendChild(delCBtn); li.appendChild(actions);
           setupCardDnD(li);
           list.appendChild(li);
         });
@@ -486,6 +513,8 @@
         const data = JSON.parse(e.target.result);
         if(!validateImport(data)){ alert('Invalid JSON schema'); return; }
         (data.projects||[]).forEach(p=> { ensureProjectColor(p); ensureProjectNotes(p); });
+        // Ensure existing cards have statusChangedAt
+        Object.values(data.cards||{}).forEach(c => ensureCardStatus(c));
         store.set({ version:1, projects:data.projects, cards:data.cards, bookmarks:data.bookmarks||[], lastModified:new Date().toISOString() });
       } catch(err){ alert('Failed to parse JSON'); }
     };
@@ -509,7 +538,7 @@
     bookmarks.sort((a,b)=> (a.order||0) - (b.order||0)).forEach(bm => {
       const li = document.createElement('li'); li.className='bookmark'; li.dataset.id=bm.id;
       const a = document.createElement('a'); a.href=bm.url; a.target='_blank'; a.rel='noopener'; a.textContent=bm.title; li.appendChild(a);
-      const del = document.createElement('button'); del.className='delete'; del.type='button'; del.textContent='\u2715'; del.title='Delete bookmark'; del.addEventListener('click',()=>{ if(confirm('Delete bookmark?')) deleteBookmark(bm.id); });
+      const del = document.createElement('button'); del.className='delete'; del.type='button'; del.textContent='✕'; del.title='Delete bookmark'; del.addEventListener('click',()=>{ if(confirm('Delete bookmark?')) deleteBookmark(bm.id); });
       li.appendChild(del);
       bookmarksList.appendChild(li);
     });
@@ -577,6 +606,7 @@
     if(existing){
       if(!existing.bookmarks) existing.bookmarks = [];
       (existing.projects||[]).forEach(p=> { if(typeof p.collapsed !== 'boolean') p.collapsed = true; ensureProjectColor(p); ensureProjectNotes(p); });
+      Object.values(existing.cards||{}).forEach(c => ensureCardStatus(c));
       store.set(existing);
     } else { store.set(createEmptyBoard()); }
     wireUI();
