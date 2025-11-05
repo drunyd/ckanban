@@ -8,19 +8,21 @@
 2. [Features](#features)
 3. [Quick Start (Install)](#quick-start-install)
 4. [Usage Guide](#usage-guide)
-5. [Keyboard Shortcuts](#keyboard-shortcuts)
-6. [Data Model & Persistence](#data-model--persistence)
-7. [Architecture](#architecture)
-8. [Export / Import Format](#export--import-format)
-9. [Privacy & Permissions](#privacy--permissions)
-10. [Roadmap](#roadmap)
-11. [Contributing](#contributing)
-12. [Development Workflow](#development-workflow)
-13. [Versioning](#versioning)
-14. [Security Notes](#security-notes)
-15. [FAQ](#faq)
-16. [License](#license)
-17. [Acknowledgements](#acknowledgements)
+5. [Card Status Change Timestamp](#card-status-change-timestamp)
+6. [Worked Report Modal](#worked-report-modal)
+7. [Keyboard Shortcuts](#keyboard-shortcuts)
+8. [Data Model & Persistence](#data-model--persistence)
+9. [Architecture](#architecture)
+10. [Export / Import Format](#export--import-format)
+11. [Privacy & Permissions](#privacy--permissions)
+12. [Roadmap](#roadmap)
+13. [Contributing](#contributing)
+14. [Development Workflow](#development-workflow)
+15. [Versioning](#versioning)
+16. [Security Notes](#security-notes)
+17. [FAQ](#faq)
+18. [License](#license)
+19. [Acknowledgements](#acknowledgements)
 
 ---
 ## Overview
@@ -36,8 +38,11 @@ Why this project?
 - Multiple projects with drag & drop reordering.
 - Per‑project Kanban columns: Links, Backlog, In Progress, On Hold, Complete.
 - Color palette for project headers (+ contrast aware text color).
-- Per‑project rich text notes (plain text area, timestamped updates).
+- Per‑project notes (plain text area, timestamped updates).
+- Inline project name edit (pencil icon on header).
 - Bookmarks panel + Quick Bookmarks modal (fuzzy search, `Ctrl+B`).
+- Per‑card status change timestamp (top‑left of each card; updates only on moves between columns).
+- Worked report modal (daily summary of cards whose status changed; grouped by status excluding Links).
 - Card & link management (add, edit, move, delete) with keyboard prompts.
 - JSON export / import for backups & migration (`kanban.v1` schema).
 - One‑click printable PDF project report (uses browser print to save).
@@ -78,6 +83,8 @@ Core interactions:
 - Project notes: Edit / Save buttons in the Notes section, `Ctrl+Enter` saves.
 - Color selection: palette opens from the 🎨 button in the header.
 - Bookmarks: open panel, '+ Bookmark' to add; quick search with `Ctrl+B`.
+- View status change time: small timestamp at top‑left of each card.
+- Worked report: click `Worked` button, enter date (YYYY-MM-DD) to see daily status movements.
 - Export: JSON file named `ckanban-export.json` for backups.
 - Import: choose JSON file matching schema to replace current board.
 - PDF: Generate a printable summary of all projects.
@@ -89,13 +96,41 @@ Data safety:
 - Export regularly for manual backup if data is critical.
 
 ---
+## Card Status Change Timestamp
+Each card stores a `statusChangedAt` ISO timestamp:
+- Set on card creation (same as `createdAt`).
+- Updated ONLY when the card is moved between columns (status change).
+- Not modified when editing the card title or link details.
+- Displayed (formatted as `YYYY-MM-DD HH:MM`) in the card header, top‑left.
+- Included in JSON export / import for reproducible Worked reports.
+
+Use cases:
+- Daily stand‑up prep (filter for today’s moved cards).
+- Lightweight activity auditing without full history tracking.
+
+---
+## Worked Report Modal
+Quick daily summary of what progressed:
+- Open via `Worked` button in the top header.
+- Prompts for a date (defaults to today) in `YYYY-MM-DD` format.
+- Lists all cards whose `statusChangedAt` date portion matches the input.
+- Groups by status (Backlog, In Progress, On Hold, Complete) – Links are excluded.
+- Shows per‑group counts and project names for each card.
+- Closes via Close button, `Esc`, or clicking outside the inner panel.
+
+Notes & limitations:
+- No keyboard shortcut yet (planned future addition, e.g. `Ctrl+Shift+W`).
+- Uses local timestamps; timezone is the browser’s environment.
+- Ephemeral view: does not persist or export separate analytics.
+
+---
 ## Keyboard Shortcuts
 | Shortcut | Action |
 |----------|--------|
 | `Enter` (in new project input) | Add project |
 | `Ctrl+Enter` (inside notes editor) | Save notes |
 | `Ctrl+B` | Open / toggle Quick Bookmarks modal |
-| `Esc` (Quick Bookmarks / Notes edit) | Close / Cancel |
+| `Esc` (Quick Bookmarks / Notes edit / Worked modal) | Close / Cancel |
 | `ArrowUp/ArrowDown` (Quick Bookmarks) | Navigate results |
 | `Enter` (Quick Bookmarks active item) | Open bookmark |
 
@@ -122,9 +157,20 @@ Data safety:
     "notes": { "text": "...", "updatedAt": "2025-01-01T12:10:00.000Z" }
   }
   ```
-- Card types:
-  - `type: "card"` (regular task)
-  - `type: "link"` (external reference, includes `url`)
+- Card object (simplified task):
+  ```json
+  {
+    "id": "uuid",
+    "projectId": "uuid",
+    "title": "Card title",
+    "type": "card",
+    "createdAt": "2025-01-01T12:00:00.000Z",
+    "updatedAt": "2025-01-01T13:00:00.000Z",
+    "statusChangedAt": "2025-01-01T13:00:00.000Z"
+  }
+  ```
+- Link card adds: `"url": "https://..."` (still includes `statusChangedAt`).
+- `statusChangedAt` aligns with column movements; editing a title does not update it.
 
 Save strategy: calls `chrome.storage.local.set` after a short debounce (250ms) to batch rapid edits.
 
@@ -137,7 +183,7 @@ The app is a single New Tab HTML page (`dist/ui/board.html`) + a plain JavaScrip
 - Drag & drop implemented with native HTML5 drag events.
 - Color accessibility: luminance check ensures readable text over backgrounds.
 - Quick Bookmarks modal uses basic fuzzy scoring and keyboard navigation.
-- Export & import functions serialize and validate against a simple schema tag (`schema: "kanban.v1"`).
+- Export & import functions serialize and validate against a simple schema tag (`schema: "kanban.v1").
 
 Modifying code:
 - Colors: edit `PROJECT_COLOR_PALETTE` constant.
