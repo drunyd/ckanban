@@ -573,28 +573,37 @@
 
   // UI event wiring
   function wireUI(){
-    document.getElementById('addProjectBtn').addEventListener('click', () => {
-      const inp = document.getElementById('newProjectName');
-      addProject(inp.value); inp.value=''; inp.focus();
-    });
-    document.getElementById('newProjectName').addEventListener('keypress', e => { if(e.key==='Enter'){ document.getElementById('addProjectBtn').click(); }});
-    document.getElementById('exportBtn').addEventListener('click', exportJSON);
-    document.getElementById('importFile').addEventListener('change', e => { const f=e.target.files[0]; if(f) importJSON(f); e.target.value=''; });
-    document.getElementById('clearBtn').addEventListener('click', clearAll);
-    if(toggleBookmarksBtn) toggleBookmarksBtn.addEventListener('click', toggleBookmarks);
-    const pdfBtn = document.getElementById('pdfBtn');
-    if(pdfBtn) pdfBtn.addEventListener('click', exportPDFReport);
-    const addBookmarkBtn = document.getElementById('addBookmarkBtn');
-    if(addBookmarkBtn) addBookmarkBtn.addEventListener('click', ()=>{
-      const name = prompt('Bookmark name'); if(!name) return; const url = prompt('Bookmark URL (https://...)'); if(!url) return; addBookmark(name, url);
-    });
-    const toggleAllBtn = document.getElementById('toggleAllProjectsBtn');
-    if(toggleAllBtn) toggleAllBtn.addEventListener('click', ()=>{
-      const board = store.get();
-      const allCollapsed = board.projects.every(p=> p.collapsed);
-      setAllProjectsCollapsed(!allCollapsed);
-    });
-  }
+     document.getElementById('addProjectBtn').addEventListener('click', () => {
+       const inp = document.getElementById('newProjectName');
+       addProject(inp.value); inp.value=''; inp.focus();
+     });
+     document.getElementById('newProjectName').addEventListener('keypress', e => { if(e.key==='Enter'){ document.getElementById('addProjectBtn').click(); }});
+     document.getElementById('exportBtn').addEventListener('click', exportJSON);
+     document.getElementById('importFile').addEventListener('change', e => { const f=e.target.files[0]; if(f) importJSON(f); e.target.value=''; });
+     document.getElementById('clearBtn').addEventListener('click', clearAll);
+     if(toggleBookmarksBtn) toggleBookmarksBtn.addEventListener('click', toggleBookmarks);
+     const pdfBtn = document.getElementById('pdfBtn');
+     if(pdfBtn) pdfBtn.addEventListener('click', exportPDFReport);
+     const addBookmarkBtn = document.getElementById('addBookmarkBtn');
+     if(addBookmarkBtn) addBookmarkBtn.addEventListener('click', ()=>{
+       const name = prompt('Bookmark name'); if(!name) return; const url = prompt('Bookmark URL (https://...)'); if(!url) return; addBookmark(name, url);
+     });
+     const toggleAllBtn = document.getElementById('toggleAllProjectsBtn');
+     if(toggleAllBtn) toggleAllBtn.addEventListener('click', ()=>{
+       const board = store.get();
+       const allCollapsed = board.projects.every(p=> p.collapsed);
+       setAllProjectsCollapsed(!allCollapsed);
+     });
+     const workedBtn = document.getElementById('workedBtn');
+     if(workedBtn) workedBtn.addEventListener('click', ()=>{
+       const def = new Date().toISOString().slice(0,10);
+       const date = prompt('Enter date (YYYY-MM-DD)', def);
+       if(!date) return;
+       const d = date.trim();
+       if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert('Invalid date format. Use YYYY-MM-DD'); return; }
+       openWorkedModal(d);
+     });
+   }
 
   function handleGlobalClickForColorPickers(e){
     document.querySelectorAll('.color-picker-wrap.open').forEach(el => { if(!el.contains(e.target)) el.classList.remove('open'); });
@@ -708,6 +717,80 @@
     // Close on outside click
     modal.addEventListener('mousedown', e => { if(e.target===modal) closeModal(); });
   }
+
+  // Worked Cards Modal
+  let workedDate = null;
+  const WORKED_STATUSES = STATUSES.filter(s => s !== 'links');
+  function getCardStatus(card, projects){
+    const proj = projects.find(p=> p.id===card.projectId);
+    if(!proj) return null;
+    for(const s of STATUSES){ if(proj.columns[s].includes(card.id)) return s; }
+    return null;
+  }
+  function openWorkedModal(dateStr){
+    const modal = document.getElementById('workedModal');
+    if(!modal) return;
+    workedDate = dateStr;
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden','false');
+    renderWorkedResults();
+  }
+  function closeWorkedModal(){
+    const modal = document.getElementById('workedModal');
+    if(!modal) return;
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden','true');
+    modal.innerHTML='';
+    workedDate = null;
+  }
+  function isWorkedModalOpen(){
+    const modal = document.getElementById('workedModal');
+    return !!(modal && modal.classList.contains('open'));
+  }
+  function renderWorkedResults(){
+    const modal = document.getElementById('workedModal');
+    if(!modal || !workedDate) return;
+    const { projects, cards } = store.get();
+    const groups = {}; WORKED_STATUSES.forEach(s => groups[s]=[]);
+    Object.values(cards).forEach(card => {
+      if(!card) return;
+      ensureCardStatus(card);
+      const datePart = (card.statusChangedAt || '').slice(0,10);
+      if(datePart === workedDate){
+        const status = getCardStatus(card, projects);
+        if(status && WORKED_STATUSES.includes(status)) groups[status].push(card);
+      }
+    });
+    modal.innerHTML='';
+    const inner = document.createElement('div'); inner.className='worked-inner';
+    const header = document.createElement('div'); header.className='worked-header';
+    const h2 = document.createElement('h2'); h2.textContent='Worked: ' + workedDate; header.appendChild(h2);
+    const closeBtn = document.createElement('button'); closeBtn.type='button'; closeBtn.className='worked-close-btn'; closeBtn.textContent='Close'; closeBtn.addEventListener('click', closeWorkedModal); header.appendChild(closeBtn);
+    inner.appendChild(header);
+    let total=0; WORKED_STATUSES.forEach(s => total += groups[s].length);
+    if(total===0){
+      const empty = document.createElement('div'); empty.className='worked-empty'; empty.textContent='No cards changed status on this date.'; inner.appendChild(empty);
+    } else {
+      WORKED_STATUSES.forEach(s => {
+        const arr = groups[s]; if(!arr.length) return;
+        const section = document.createElement('div'); section.className='worked-group';
+        const title = document.createElement('div'); title.className='worked-group-title'; title.textContent = statusLabel(s) + ' (' + arr.length + ')'; section.appendChild(title);
+        const ul = document.createElement('ul'); ul.className='worked-list';
+        arr.sort((a,b)=> a.title.localeCompare(b.title));
+        arr.forEach(card => {
+          const li = document.createElement('li'); li.textContent=card.title;
+          const sm = document.createElement('small'); sm.textContent='Project: ' + (projects.find(p=> p.id===card.projectId)?.name || 'Unknown'); li.appendChild(sm);
+          ul.appendChild(li);
+        });
+        section.appendChild(ul);
+        inner.appendChild(section);
+      });
+    }
+    modal.appendChild(inner);
+  }
+  document.addEventListener('keydown', e => { if(e.key==='Escape' && isWorkedModalOpen()) closeWorkedModal(); });
+  document.addEventListener('mousedown', e => { const modal = document.getElementById('workedModal'); if(isWorkedModalOpen() && modal===e.target) closeWorkedModal(); });
+  store.subscribe(()=> { if(isWorkedModalOpen()) renderWorkedResults(); });
 
   // Project row drag & drop (header bar)
   let projectDrag = null; // {id, startIndex}
