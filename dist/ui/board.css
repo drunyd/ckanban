@@ -144,3 +144,8 @@ ul.worked-list { list-style:none; margin:0; padding:0; display:flex; flex-direct
 ul.worked-list li { background:#fff; border:1px solid #e2e8f0; border-radius:4px; padding:.35rem .45rem; line-height:1.2; display:flex; flex-direction:column; gap:.2rem; }
 ul.worked-list li small { font-size:.55rem; color:#64748b; }
 .worked-empty { font-size:.7rem; color:#64748b; }
+/* Worked status color accents */
+.worked-group.worked-status-backlog { border-color:#3b82f6; background:#eff6ff; }
+.worked-group.worked-status-inProgress { border-color:#f59e0b; background:#fef3c7; }
+.worked-group.worked-status-onHold { border-color:#8b5cf6; background:#f5f3ff; }
+.worked-group.worked-status-complete { border-color:#10b981; background:#ecfdf5; }

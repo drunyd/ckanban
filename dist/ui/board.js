@@ -708,6 +708,15 @@
 
     document.addEventListener('keydown', e => {
       if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='b'){ e.preventDefault(); if(isOpen()) closeModal(); else openModal(); }
+      else if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='w'){
+        e.preventDefault();
+        const def = new Date().toISOString().slice(0,10);
+        const date = prompt('Enter date (YYYY-MM-DD)', def);
+        if(!date) return;
+        const d = date.trim();
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert('Invalid date format. Use YYYY-MM-DD'); return; }
+        openWorkedModal(d);
+      }
       else if(e.key==='Escape' && isOpen()){ closeModal(); }
     });
 
@@ -773,7 +782,7 @@
     } else {
       WORKED_STATUSES.forEach(s => {
         const arr = groups[s]; if(!arr.length) return;
-        const section = document.createElement('div'); section.className='worked-group';
+        const section = document.createElement('div'); section.className='worked-group worked-status-' + s;
         const title = document.createElement('div'); title.className='worked-group-title'; title.textContent = statusLabel(s) + ' (' + arr.length + ')'; section.appendChild(title);
         const ul = document.createElement('ul'); ul.className='worked-list';
         arr.sort((a,b)=> a.title.localeCompare(b.title));
