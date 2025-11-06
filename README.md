@@ -1,3 +1,6 @@
+**Disclaimer (AI-Assisted / “Vibe-Coded”)**  
+Most of this code was generated or heavily assisted by AI. I mainly tested/validated prompts rather than hand‑crafting the implementation. Please don’t assume deep wizardry here. Review the code before relying on it; use at your own risk. Contributions, audits, and improvements are very welcome.
+
 # CKanban
 
 > Multi‑project Kanban & bookmark assistant – delivered as a Chrome Extension that replaces your New Tab page with a lightweight, offline board. Current version: **0.7.1**.
