@@ -1,6 +1,6 @@
 # CKanban
 
-> Multi‑project Kanban & bookmark assistant – delivered as a Chrome Extension that replaces your New Tab page with a lightweight, offline board. Current version: **0.7.0**.
+> Multi‑project Kanban & bookmark assistant – delivered as a Chrome Extension that replaces your New Tab page with a lightweight, offline board. Current version: **0.7.1**.
 
 ---
 ## Table of Contents
@@ -111,7 +111,7 @@ Use cases:
 ---
 ## Worked Report Modal
 Quick daily summary of what progressed:
-- Open via `Worked` button in the top header or `Ctrl+W` (Windows/Linux) / `Cmd+W` (macOS will normally close the tab, so use the button there).
+- Open via `Worked` button in the top header or `Ctrl+Q` (Windows/Linux). On macOS use the button (Cmd+Q quits Chrome).
 - Prompts for a date (defaults to today) in `YYYY-MM-DD` format.
 - Lists all cards whose `statusChangedAt` date portion matches the input.
 - Groups by status (Backlog, In Progress, On Hold, Complete) – Links are excluded.
@@ -119,7 +119,7 @@ Quick daily summary of what progressed:
 - Closes via Close button, `Esc`, or clicking outside the inner panel.
 
 Notes & limitations:
-- Shortcut: `Ctrl+W` opens the prompt (on macOS prefer the button due to default tab close).
+- Shortcut: `Ctrl+Q` opens the prompt (macOS: use the button; Cmd+Q quits Chrome).
 - Uses local timestamps; timezone is the browser’s environment.
 - Ephemeral view: does not persist or export separate analytics.
 
@@ -130,7 +130,7 @@ Notes & limitations:
 | `Enter` (in new project input) | Add project |
 | `Ctrl+Enter` (inside notes editor) | Save notes |
 | `Ctrl+B` | Open / toggle Quick Bookmarks modal |
-| `Ctrl+W` | Open Worked date prompt |
+| `Ctrl+Q` | Open Worked date prompt |
 | `Esc` (Quick Bookmarks / Notes edit / Worked modal) | Close / Cancel |
 | `ArrowUp/ArrowDown` (Quick Bookmarks) | Navigate results |
 | `Enter` (Quick Bookmarks active item) | Open bookmark |

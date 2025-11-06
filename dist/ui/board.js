@@ -708,7 +708,7 @@
 
     document.addEventListener('keydown', e => {
       if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='b'){ e.preventDefault(); if(isOpen()) closeModal(); else openModal(); }
-      else if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='w'){
+      else if(e.ctrlKey && e.key.toLowerCase()==='q'){
         e.preventDefault();
         const def = new Date().toISOString().slice(0,10);
         const date = prompt('Enter date (YYYY-MM-DD)', def);
