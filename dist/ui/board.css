@@ -149,3 +149,35 @@ ul.worked-list li small { font-size:.55rem; color:#64748b; }
 .worked-group.worked-status-inProgress { border-color:#f59e0b; background:#fef3c7; }
 .worked-group.worked-status-onHold { border-color:#8b5cf6; background:#f5f3ff; }
 .worked-group.worked-status-complete { border-color:#10b981; background:#ecfdf5; }
+
+/* Time Entries Modal */
+.time-modal { position:fixed; inset:0; display:flex; align-items:flex-start; justify-content:center; padding:6vh 1rem 2rem; background:rgba(30,41,59,.55); backdrop-filter:blur(4px); z-index:130; opacity:0; pointer-events:none; transition:opacity .18s ease; }
+.time-modal.open { opacity:1; pointer-events:auto; }
+.time-modal .time-inner { width:100%; max-width:640px; max-height:70vh; overflow-y:auto; background:#ffffff; border:1px solid #cbd5e1; border-radius:10px; box-shadow:0 8px 32px rgba(0,0,0,.28); padding:.85rem .9rem 1rem; display:flex; flex-direction:column; gap:.7rem; }
+.time-header { display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+.time-header h2 { margin:0; font-size:1rem; }
+.time-close-btn { background:#64748b; color:#fff; border:none; padding:.4rem .7rem; font-size:.65rem; border-radius:6px; cursor:pointer; }
+.time-close-btn:hover { background:#475569; }
+.time-card-title { font-size:.75rem; color:#475569; }
+.time-form { display:grid; grid-template-columns: 1fr 120px auto; gap:.5rem; align-items:end; }
+.time-form label { font-size:.6rem; text-transform:uppercase; letter-spacing:.4px; color:#475569; display:flex; flex-direction:column; gap:.2rem; }
+.time-form input { padding:.4rem .45rem; border:1px solid #cbd5e1; border-radius:4px; font-size:.7rem; }
+.time-add-btn { background:#2563eb; color:#fff; border:none; padding:.45rem .8rem; font-size:.65rem; border-radius:6px; cursor:pointer; height:32px; }
+.time-add-btn:hover { background:#1d4ed8; }
+.time-error { font-size:.6rem; color:#dc2626; min-height:14px; }
+.time-entries { display:flex; flex-direction:column; gap:.4rem; }
+.time-entry { display:flex; align-items:center; justify-content:space-between; gap:.6rem; border:1px solid #e2e8f0; border-radius:6px; padding:.4rem .5rem; background:#f8fafc; }
+.time-entry-info { display:flex; flex-direction:column; gap:.1rem; }
+.time-entry-date { font-size:.7rem; font-weight:600; }
+.time-entry-hours { font-size:.65rem; color:#475569; }
+.time-entry-actions { display:flex; gap:.3rem; }
+.time-entry-actions button { background:#64748b; color:#fff; border:none; padding:.25rem .5rem; font-size:.6rem; border-radius:4px; cursor:pointer; }
+.time-entry-actions button:hover { background:#475569; }
+.time-entry-actions .danger { background:#7f1d1d; }
+.time-entry-actions .danger:hover { background:#991b1b; }
+.time-empty { font-size:.7rem; color:#64748b; }
+.time-total { font-size:.65rem; color:#475569; text-align:right; }
+.time-edit-form { display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; }
+.time-edit-form input { padding:.35rem .4rem; border:1px solid #cbd5e1; border-radius:4px; font-size:.65rem; }
+.time-edit-form button { background:#2563eb; color:#fff; border:none; padding:.25rem .5rem; font-size:.6rem; border-radius:4px; cursor:pointer; }
+.time-edit-form button:hover { background:#1d4ed8; }

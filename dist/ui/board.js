@@ -19,6 +19,8 @@
   // UI state for editing notes (kept outside board model so rerenders preserve drafts)
   const editingNotes = {}; // projectId -> { draft: string }
   const editingProjectName = {}; // projectId -> { draft: string }
+  let timeModalCardId = null;
+  let timeEntryEdit = null; // { cardId, date, draftDate, draftHours }
 
   function uuid(){
     return (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -96,6 +98,42 @@
     const pad = n => String(n).padStart(2,'0');
     return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
   }
+  function ensureCardTimeEntries(card){
+    if(!card) return;
+    if(card.type === 'link'){
+      if(card.timeEntries) delete card.timeEntries;
+      return;
+    }
+    if(!card.timeEntries || typeof card.timeEntries !== 'object' || Array.isArray(card.timeEntries)){
+      card.timeEntries = {};
+      return;
+    }
+    Object.keys(card.timeEntries).forEach(date => {
+      const val = Number(card.timeEntries[date]);
+      if(!Number.isFinite(val) || val <= 0){ delete card.timeEntries[date]; }
+      else { card.timeEntries[date] = val; }
+    });
+  }
+  function normalizeDateInput(value){
+    if(!value) return null;
+    const trimmed = value.trim();
+    if(/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    if(/^\d{4}\.\d{2}\.\d{2}$/.test(trimmed)) return trimmed.replace(/\./g,'-');
+    return null;
+  }
+  function normalizeHours(value){
+    const num = Number(value);
+    if(!Number.isFinite(num)) return null;
+    return Math.round(num * 100) / 100;
+  }
+  function formatHours(value){
+    const num = normalizeHours(value);
+    return num === null ? '' : String(num);
+  }
+  function getTimeEntries(card){
+    ensureCardTimeEntries(card);
+    return Object.keys(card.timeEntries || {}).sort((a,b)=> b.localeCompare(a)).map(date => ({ date, hours: card.timeEntries[date] }));
+  }
 
   // Project / Card Mutations
   function addProject(name){
@@ -163,6 +201,49 @@
     if(!newTitle.trim()) return;
     store.update(board => {
       if(board.cards[cardId]) { board.cards[cardId].title = newTitle.trim(); board.cards[cardId].updatedAt = new Date().toISOString(); /* do NOT change statusChangedAt here */ }
+    });
+  }
+  function addTimeEntry(cardId, date, hours){
+    store.update(board => {
+      const card = board.cards[cardId];
+      if(!card || card.type === 'link') return;
+      ensureCardTimeEntries(card);
+      const safeDate = normalizeDateInput(date);
+      const safeHours = normalizeHours(hours);
+      if(!safeDate || safeHours === null || safeHours <= 0) return;
+      const existing = Number(card.timeEntries[safeDate] || 0);
+      card.timeEntries[safeDate] = Math.round((existing + safeHours) * 100) / 100;
+      card.updatedAt = new Date().toISOString();
+    });
+  }
+  function updateTimeEntry(cardId, oldDate, newDate, hours){
+    store.update(board => {
+      const card = board.cards[cardId];
+      if(!card || card.type === 'link') return;
+      ensureCardTimeEntries(card);
+      const safeNewDate = normalizeDateInput(newDate);
+      const safeHours = normalizeHours(hours);
+      if(!safeNewDate || safeHours === null || safeHours <= 0) return;
+      const oldKey = normalizeDateInput(oldDate);
+      if(oldKey && oldKey === safeNewDate){
+        card.timeEntries[safeNewDate] = safeHours;
+      } else {
+        if(oldKey && card.timeEntries[oldKey]) delete card.timeEntries[oldKey];
+        const existing = Number(card.timeEntries[safeNewDate] || 0);
+        card.timeEntries[safeNewDate] = Math.round((existing + safeHours) * 100) / 100;
+      }
+      card.updatedAt = new Date().toISOString();
+    });
+  }
+  function deleteTimeEntry(cardId, date){
+    store.update(board => {
+      const card = board.cards[cardId];
+      if(!card || card.type === 'link') return;
+      ensureCardTimeEntries(card);
+      const safeDate = normalizeDateInput(date);
+      if(!safeDate || !card.timeEntries[safeDate]) return;
+      delete card.timeEntries[safeDate];
+      card.updatedAt = new Date().toISOString();
     });
   }
   function updateProjectNotes(projectId, text){
@@ -371,8 +452,13 @@
           const editBtn = el('button'); editBtn.textContent='✎'; editBtn.title='Edit title'; editBtn.addEventListener('click',()=>{
             const nt = prompt('Edit title', card.title); if(nt && nt!==card.title) editCard(cid, nt);
           });
+          actions.appendChild(editBtn);
+          if(card.type !== 'link'){
+            const timeBtn = el('button'); timeBtn.textContent='Time'; timeBtn.title='Track time'; timeBtn.addEventListener('click',()=> openTimeModal(cid));
+            actions.appendChild(timeBtn);
+          }
           const delCBtn = el('button'); delCBtn.textContent='✕'; delCBtn.title='Delete'; delCBtn.addEventListener('click',()=>{ if(confirm('Delete item?')) deleteCard(cid); });
-          actions.appendChild(editBtn); actions.appendChild(delCBtn);
+          actions.appendChild(delCBtn);
           head.appendChild(actions);
           li.appendChild(head);
           const title = el('div','card-title');
@@ -483,10 +569,30 @@
          const colTitle = document.createElement('div'); colTitle.className='pdf-section-title'; colTitle.textContent = statusLabel(colKey); projDiv.appendChild(colTitle);
          const list = document.createElement('ul'); list.className='pdf-cards';
          const ids = project.columns[colKey];
-         ids.forEach(cid => { const card = board.cards[cid]; if(!card) return; const li=document.createElement('li'); li.textContent = card.title; list.appendChild(li); });
-         if(!ids.length){ const li=document.createElement('li'); li.textContent='(Empty)'; list.appendChild(li); }
-         projDiv.appendChild(list);
-       });
+          ids.forEach(cid => { const card = board.cards[cid]; if(!card) return; const li=document.createElement('li'); li.textContent = card.title; list.appendChild(li); });
+          if(!ids.length){ const li=document.createElement('li'); li.textContent='(Empty)'; list.appendChild(li); }
+          projDiv.appendChild(list);
+          // Time entries summary (per card)
+          ids.forEach(cid => {
+            const card = board.cards[cid];
+            if(!card || card.type === 'link') return;
+            ensureCardTimeEntries(card);
+            const entries = getTimeEntries(card);
+            if(!entries.length) return;
+            const timeTitle = document.createElement('div'); timeTitle.className='pdf-section-title'; timeTitle.textContent = 'Time: ' + (card.title || 'Untitled Card');
+            projDiv.appendChild(timeTitle);
+            const timeList = document.createElement('ul'); timeList.className='pdf-cards';
+            entries.forEach(entry => {
+              const li = document.createElement('li');
+              li.textContent = entry.date + ' - ' + entry.hours + ' hours';
+              timeList.appendChild(li);
+            });
+            const total = entries.reduce((sum, entry) => sum + Number(entry.hours || 0), 0);
+            const totalLi = document.createElement('li'); totalLi.textContent = 'Total: ' + formatHours(total) + ' hours';
+            timeList.appendChild(totalLi);
+            projDiv.appendChild(timeList);
+          });
+        });
        const meta = document.createElement('div'); meta.className='pdf-meta'; meta.textContent = 'Created: ' + new Date(project.createdAt).toLocaleDateString(); projDiv.appendChild(meta);
        wrapper.appendChild(projDiv);
      });
@@ -514,7 +620,7 @@
         if(!validateImport(data)){ alert('Invalid JSON schema'); return; }
         (data.projects||[]).forEach(p=> { ensureProjectColor(p); ensureProjectNotes(p); });
         // Ensure existing cards have statusChangedAt
-        Object.values(data.cards||{}).forEach(c => ensureCardStatus(c));
+        Object.values(data.cards||{}).forEach(c => { ensureCardStatus(c); ensureCardTimeEntries(c); });
         store.set({ version:1, projects:data.projects, cards:data.cards, bookmarks:data.bookmarks||[], lastModified:new Date().toISOString() });
       } catch(err){ alert('Failed to parse JSON'); }
     };
@@ -594,16 +700,25 @@
        const allCollapsed = board.projects.every(p=> p.collapsed);
        setAllProjectsCollapsed(!allCollapsed);
      });
-     const workedBtn = document.getElementById('workedBtn');
-     if(workedBtn) workedBtn.addEventListener('click', ()=>{
-       const def = new Date().toISOString().slice(0,10);
-       const date = prompt('Enter date (YYYY-MM-DD)', def);
-       if(!date) return;
-       const d = date.trim();
-       if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert('Invalid date format. Use YYYY-MM-DD'); return; }
-       openWorkedModal(d);
-     });
-   }
+      const workedBtn = document.getElementById('workedBtn');
+      if(workedBtn) workedBtn.addEventListener('click', ()=>{
+        const def = new Date().toISOString().slice(0,10);
+        const date = prompt('Enter date (YYYY-MM-DD)', def);
+        if(!date) return;
+        const d = date.trim();
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert('Invalid date format. Use YYYY-MM-DD'); return; }
+        openWorkedModal(d);
+      });
+      const workedHoursBtn = document.getElementById('workedHoursBtn');
+      if(workedHoursBtn) workedHoursBtn.addEventListener('click', ()=>{
+        const def = new Date().toISOString().slice(0,10);
+        const date = prompt('Enter date (YYYY-MM-DD)', def);
+        if(!date) return;
+        const d = date.trim();
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert('Invalid date format. Use YYYY-MM-DD'); return; }
+        openWorkedHoursModal(d);
+      });
+    }
 
   function handleGlobalClickForColorPickers(e){
     document.querySelectorAll('.color-picker-wrap.open').forEach(el => { if(!el.contains(e.target)) el.classList.remove('open'); });
@@ -612,12 +727,12 @@
   // Init
   async function init(){
     const existing = await loadBoard();
-    if(existing){
-      if(!existing.bookmarks) existing.bookmarks = [];
-      (existing.projects||[]).forEach(p=> { if(typeof p.collapsed !== 'boolean') p.collapsed = true; ensureProjectColor(p); ensureProjectNotes(p); });
-      Object.values(existing.cards||{}).forEach(c => ensureCardStatus(c));
-      store.set(existing);
-    } else { store.set(createEmptyBoard()); }
+      if(existing){
+        if(!existing.bookmarks) existing.bookmarks = [];
+        (existing.projects||[]).forEach(p=> { if(typeof p.collapsed !== 'boolean') p.collapsed = true; ensureProjectColor(p); ensureProjectNotes(p); });
+        Object.values(existing.cards||{}).forEach(c => { ensureCardStatus(c); ensureCardTimeEntries(c); });
+        store.set(existing);
+      } else { store.set(createEmptyBoard()); }
     wireUI();
     document.addEventListener('click', handleGlobalClickForColorPickers);
     store.subscribe(render);
@@ -727,8 +842,128 @@
     modal.addEventListener('mousedown', e => { if(e.target===modal) closeModal(); });
   }
 
+  // Time Entries Modal
+  function openTimeModal(cardId){
+    const card = store.get().cards[cardId];
+    if(!card || card.type === 'link') return;
+    timeModalCardId = cardId;
+    timeEntryEdit = null;
+    const modal = document.getElementById('timeModal');
+    if(!modal) return;
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden','false');
+    renderTimeModal();
+  }
+  function closeTimeModal(){
+    const modal = document.getElementById('timeModal');
+    if(!modal) return;
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden','true');
+    modal.innerHTML='';
+    timeModalCardId = null;
+    timeEntryEdit = null;
+  }
+  function isTimeModalOpen(){
+    const modal = document.getElementById('timeModal');
+    return !!(modal && modal.classList.contains('open'));
+  }
+  function renderTimeModal(){
+    const modal = document.getElementById('timeModal');
+    if(!modal || !timeModalCardId) return;
+    const { cards } = store.get();
+    const card = cards[timeModalCardId];
+    if(!card){ closeTimeModal(); return; }
+    ensureCardTimeEntries(card);
+    modal.innerHTML='';
+    const inner = document.createElement('div'); inner.className='time-inner';
+    const header = document.createElement('div'); header.className='time-header';
+    const h2 = document.createElement('h2'); h2.textContent='Time Entries'; header.appendChild(h2);
+    const closeBtn = document.createElement('button'); closeBtn.type='button'; closeBtn.className='time-close-btn'; closeBtn.textContent='Close'; closeBtn.addEventListener('click', closeTimeModal); header.appendChild(closeBtn);
+    inner.appendChild(header);
+    const title = document.createElement('div'); title.className='time-card-title'; title.textContent = card.title || 'Untitled Card'; inner.appendChild(title);
+
+    const form = document.createElement('div'); form.className='time-form';
+    const dateLabel = document.createElement('label'); dateLabel.textContent='Date';
+    const dateInput = document.createElement('input'); dateInput.type='text'; dateInput.placeholder='YYYY-MM-DD'; dateInput.value = new Date().toISOString().slice(0,10);
+    dateLabel.appendChild(dateInput);
+    const hoursLabel = document.createElement('label'); hoursLabel.textContent='Hours';
+    const hoursInput = document.createElement('input'); hoursInput.type='number'; hoursInput.step='0.25'; hoursInput.min='0';
+    hoursLabel.appendChild(hoursInput);
+    const addBtn = document.createElement('button'); addBtn.type='button'; addBtn.className='time-add-btn'; addBtn.textContent='Add';
+    const error = document.createElement('div'); error.className='time-error';
+    function submitAdd(){
+      const date = normalizeDateInput(dateInput.value);
+      const hours = normalizeHours(hoursInput.value);
+      if(!date){ error.textContent='Enter date in YYYY-MM-DD.'; return; }
+      if(hours === null || hours <= 0){ error.textContent='Enter hours > 0.'; return; }
+      addTimeEntry(card.id, date, hours);
+      hoursInput.value='';
+      dateInput.value = date;
+      error.textContent='';
+      renderTimeModal();
+    }
+    addBtn.addEventListener('click', submitAdd);
+    hoursInput.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); submitAdd(); } });
+    dateInput.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); submitAdd(); } });
+    form.appendChild(dateLabel); form.appendChild(hoursLabel); form.appendChild(addBtn);
+    inner.appendChild(form);
+    inner.appendChild(error);
+
+    const entriesWrap = document.createElement('div'); entriesWrap.className='time-entries';
+    const entries = getTimeEntries(card);
+    if(!entries.length){
+      const empty = document.createElement('div'); empty.className='time-empty'; empty.textContent='No time entries yet.'; entriesWrap.appendChild(empty);
+    } else {
+      entries.forEach(entry => {
+        const row = document.createElement('div'); row.className='time-entry';
+        if(timeEntryEdit && timeEntryEdit.cardId === card.id && timeEntryEdit.date === entry.date){
+          const editForm = document.createElement('div'); editForm.className='time-edit-form';
+          const editDate = document.createElement('input'); editDate.type='text'; editDate.value = timeEntryEdit.draftDate || entry.date;
+          const editHours = document.createElement('input'); editHours.type='number'; editHours.step='0.25'; editHours.min='0'; editHours.value = formatHours(timeEntryEdit.draftHours ?? entry.hours);
+          const editError = document.createElement('div'); editError.className='time-error';
+          const saveBtn = document.createElement('button'); saveBtn.type='button'; saveBtn.textContent='Save';
+          const cancelBtn = document.createElement('button'); cancelBtn.type='button'; cancelBtn.textContent='Cancel';
+          saveBtn.addEventListener('click', () => {
+            const nextDate = normalizeDateInput(editDate.value);
+            const nextHours = normalizeHours(editHours.value);
+            if(!nextDate){ editError.textContent='Enter date in YYYY-MM-DD.'; return; }
+            if(nextHours === null || nextHours <= 0){ editError.textContent='Enter hours > 0.'; return; }
+            updateTimeEntry(card.id, entry.date, nextDate, nextHours);
+            timeEntryEdit = null;
+            renderTimeModal();
+          });
+          cancelBtn.addEventListener('click', () => { timeEntryEdit = null; renderTimeModal(); });
+          editForm.appendChild(editDate); editForm.appendChild(editHours); editForm.appendChild(saveBtn); editForm.appendChild(cancelBtn); editForm.appendChild(editError);
+          row.appendChild(editForm);
+        } else {
+          const info = document.createElement('div'); info.className='time-entry-info';
+          const dateEl = document.createElement('div'); dateEl.className='time-entry-date'; dateEl.textContent = entry.date;
+          const hoursEl = document.createElement('div'); hoursEl.className='time-entry-hours'; hoursEl.textContent = entry.hours + ' hours';
+          info.appendChild(dateEl); info.appendChild(hoursEl);
+          const actions = document.createElement('div'); actions.className='time-entry-actions';
+          const editBtn = document.createElement('button'); editBtn.type='button'; editBtn.textContent='Edit'; editBtn.addEventListener('click', () => {
+            timeEntryEdit = { cardId: card.id, date: entry.date, draftDate: entry.date, draftHours: entry.hours };
+            renderTimeModal();
+          });
+          const delBtn = document.createElement('button'); delBtn.type='button'; delBtn.textContent='Delete'; delBtn.className='danger'; delBtn.addEventListener('click', () => {
+            if(confirm('Delete this entry?')){ deleteTimeEntry(card.id, entry.date); renderTimeModal(); }
+          });
+          actions.appendChild(editBtn); actions.appendChild(delBtn);
+          row.appendChild(info); row.appendChild(actions);
+        }
+        entriesWrap.appendChild(row);
+      });
+    }
+    inner.appendChild(entriesWrap);
+    const total = entries.reduce((sum, entry) => sum + Number(entry.hours || 0), 0);
+    const totalEl = document.createElement('div'); totalEl.className='time-total'; totalEl.textContent = 'Total: ' + formatHours(total) + ' hours';
+    inner.appendChild(totalEl);
+    modal.appendChild(inner);
+  }
+
   // Worked Cards Modal
   let workedDate = null;
+  let workedHoursDate = null;
   const WORKED_STATUSES = STATUSES.filter(s => s !== 'links');
   function getCardStatus(card, projects){
     const proj = projects.find(p=> p.id===card.projectId);
@@ -764,6 +999,7 @@
     Object.values(cards).forEach(card => {
       if(!card) return;
       ensureCardStatus(card);
+      ensureCardTimeEntries(card);
       const datePart = (card.statusChangedAt || '').slice(0,10);
       if(datePart === workedDate){
         const status = getCardStatus(card, projects);
@@ -797,9 +1033,73 @@
     }
     modal.appendChild(inner);
   }
+  function openWorkedHoursModal(dateStr){
+    const modal = document.getElementById('workedHoursModal');
+    if(!modal) return;
+    workedHoursDate = dateStr;
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden','false');
+    renderWorkedHoursResults();
+  }
+  function closeWorkedHoursModal(){
+    const modal = document.getElementById('workedHoursModal');
+    if(!modal) return;
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden','true');
+    modal.innerHTML='';
+    workedHoursDate = null;
+  }
+  function isWorkedHoursModalOpen(){
+    const modal = document.getElementById('workedHoursModal');
+    return !!(modal && modal.classList.contains('open'));
+  }
+  function renderWorkedHoursResults(){
+    const modal = document.getElementById('workedHoursModal');
+    if(!modal || !workedHoursDate) return;
+    const { projects, cards } = store.get();
+    const rows = [];
+    Object.values(cards).forEach(card => {
+      if(!card || card.type === 'link') return;
+      ensureCardTimeEntries(card);
+      const hours = Number((card.timeEntries || {})[workedHoursDate] || 0);
+      if(hours > 0){
+        const projectName = projects.find(p=> p.id===card.projectId)?.name || 'Unknown';
+        rows.push({ card, projectName, hours });
+      }
+    });
+    rows.sort((a,b)=> a.projectName.localeCompare(b.projectName) || a.card.title.localeCompare(b.card.title));
+    modal.innerHTML='';
+    const inner = document.createElement('div'); inner.className='worked-inner';
+    const header = document.createElement('div'); header.className='worked-header';
+    const h2 = document.createElement('h2'); h2.textContent='Worked Hours: ' + workedHoursDate; header.appendChild(h2);
+    const closeBtn = document.createElement('button'); closeBtn.type='button'; closeBtn.className='worked-close-btn'; closeBtn.textContent='Close'; closeBtn.addEventListener('click', closeWorkedHoursModal); header.appendChild(closeBtn);
+    inner.appendChild(header);
+    if(!rows.length){
+      const empty = document.createElement('div'); empty.className='worked-empty'; empty.textContent='No time entries on this date.'; inner.appendChild(empty);
+    } else {
+      const list = document.createElement('ul'); list.className='worked-list';
+      rows.forEach(row => {
+        const li = document.createElement('li');
+        li.textContent = row.card.title + ' - ' + formatHours(row.hours) + ' hours';
+        const sm = document.createElement('small'); sm.textContent='Project: ' + row.projectName; li.appendChild(sm);
+        list.appendChild(li);
+      });
+      inner.appendChild(list);
+      const total = rows.reduce((sum, row) => sum + Number(row.hours || 0), 0);
+      const totalEl = document.createElement('div'); totalEl.className='time-total'; totalEl.textContent = 'Total: ' + formatHours(total) + ' hours';
+      inner.appendChild(totalEl);
+    }
+    modal.appendChild(inner);
+  }
   document.addEventListener('keydown', e => { if(e.key==='Escape' && isWorkedModalOpen()) closeWorkedModal(); });
   document.addEventListener('mousedown', e => { const modal = document.getElementById('workedModal'); if(isWorkedModalOpen() && modal===e.target) closeWorkedModal(); });
   store.subscribe(()=> { if(isWorkedModalOpen()) renderWorkedResults(); });
+  document.addEventListener('keydown', e => { if(e.key==='Escape' && isWorkedHoursModalOpen()) closeWorkedHoursModal(); });
+  document.addEventListener('mousedown', e => { const modal = document.getElementById('workedHoursModal'); if(isWorkedHoursModalOpen() && modal===e.target) closeWorkedHoursModal(); });
+  store.subscribe(()=> { if(isWorkedHoursModalOpen()) renderWorkedHoursResults(); });
+  document.addEventListener('keydown', e => { if(e.key==='Escape' && isTimeModalOpen()) closeTimeModal(); });
+  document.addEventListener('mousedown', e => { const modal = document.getElementById('timeModal'); if(isTimeModalOpen() && modal===e.target) closeTimeModal(); });
+  store.subscribe(()=> { if(isTimeModalOpen()) renderTimeModal(); });
 
   // Project row drag & drop (header bar)
   let projectDrag = null; // {id, startIndex}

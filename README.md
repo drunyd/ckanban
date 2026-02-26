@@ -87,7 +87,9 @@ Core interactions:
 - Color selection: palette opens from the 🎨 button in the header.
 - Bookmarks: open panel, '+ Bookmark' to add; quick search with `Ctrl+B`.
 - View status change time: small timestamp at top‑left of each card.
+- Time entries: click `Time` on a card to add hours by date (YYYY-MM-DD), view per-date totals, and edit/delete them.
 - Worked report: click `Worked` button, enter date (YYYY-MM-DD) to see daily status movements.
+- Worked hours: click `Worked hours`, enter date (YYYY-MM-DD) to see cards with time entries and total hours for that day.
 - Export: JSON file named `ckanban-export.json` for backups.
 - Import: choose JSON file matching schema to replace current board.
 - PDF: Generate a printable summary of all projects.
