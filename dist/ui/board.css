@@ -45,6 +45,8 @@ main { padding:.75rem; flex:1; overflow:auto; }
 .project-row.removing { opacity:.5; }
 
 .card-head { display:flex; align-items:center; justify-content:space-between; gap:.4rem; }
+.card-meta { display:flex; align-items:center; gap:.35rem; }
+.card-hours-summary { font-size:.55rem; font-weight:600; color:var(--accent,#1a73e8); background:rgba(37,99,235,.12); border:1px solid rgba(37,99,235,.35); padding:.05rem .25rem; border-radius:4px; letter-spacing:.3px; line-height:1; }
 .card-timestamp { font-size:.55rem; color:#64748b; text-align:left; letter-spacing:.5px; line-height:1; }
 /* --- Material-ish colorful enhancements --- */
 .status-col { border-top:3px solid var(--accent,#64748b); }

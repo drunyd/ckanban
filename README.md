@@ -45,6 +45,7 @@ Why this project?
 - Inline project name edit (pencil icon on header).
 - Bookmarks panel + Quick Bookmarks modal (fuzzy search, `Ctrl+B`).
 - Per‑card status change timestamp (top‑left of each card; updates only on moves between columns).
+- Per‑card total hours summary shown next to the timestamp.
 - Worked report modal (daily summary of cards whose status changed; grouped by status excluding Links).
 - Card & link management (add, edit, move, delete) with keyboard prompts.
 - JSON export / import for backups & migration (`kanban.v1` schema).
@@ -87,6 +88,7 @@ Core interactions:
 - Color selection: palette opens from the 🎨 button in the header.
 - Bookmarks: open panel, '+ Bookmark' to add; quick search with `Ctrl+B`.
 - View status change time: small timestamp at top‑left of each card.
+- Total hours summary: shown next to the timestamp on cards (based on time entries).
 - Time entries: click `Time` on a card to add hours by date (YYYY-MM-DD), view per-date totals, and edit/delete them.
 - Worked report: click `Worked` button, enter date (YYYY-MM-DD) to see daily status movements.
 - Worked hours: click `Worked hours`, enter date (YYYY-MM-DD) to see cards with time entries and total hours for that day.

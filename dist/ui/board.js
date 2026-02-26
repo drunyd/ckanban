@@ -134,6 +134,11 @@
     ensureCardTimeEntries(card);
     return Object.keys(card.timeEntries || {}).sort((a,b)=> b.localeCompare(a)).map(date => ({ date, hours: card.timeEntries[date] }));
   }
+  function getCardHoursTotal(card){
+    if(!card || card.type === 'link') return 0;
+    ensureCardTimeEntries(card);
+    return Object.values(card.timeEntries || {}).reduce((sum, entry) => sum + Number(entry || 0), 0);
+  }
 
   // Project / Card Mutations
   function addProject(name){
@@ -445,9 +450,17 @@
             li.draggable = true;
           }
           const head = el('div','card-head');
+          const meta = el('div','card-meta');
+          if(card.type !== 'link'){
+            const totalHours = getCardHoursTotal(card);
+            const hoursEl = el('div','card-hours-summary');
+            hoursEl.textContent = formatHours(totalHours) + 'h';
+            meta.appendChild(hoursEl);
+          }
           const tsEl = el('div','card-timestamp');
           tsEl.textContent = formatStatusTimestamp(card.statusChangedAt);
-          head.appendChild(tsEl);
+          meta.appendChild(tsEl);
+          head.appendChild(meta);
           const actions = el('div','card-actions');
           const editBtn = el('button'); editBtn.textContent='✎'; editBtn.title='Edit title'; editBtn.addEventListener('click',()=>{
             const nt = prompt('Edit title', card.title); if(nt && nt!==card.title) editCard(cid, nt);
