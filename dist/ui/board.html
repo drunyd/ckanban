@@ -30,6 +30,22 @@
     <ul id="bookmarksList" class="bookmarks-grid"></ul>
   </section>
   <main>
+    <section id="todoSummary" class="todo-summary" aria-label="Todo summary">
+      <div class="todo-summary-header">
+        <h2>Todo</h2>
+        <span class="todo-summary-subtitle">Backlog &amp; In Progress</span>
+      </div>
+      <div class="todo-summary-grid">
+        <div class="status-col status-backlog todo-summary-col">
+          <div class="status-header"><span class="status-title">Backlog</span></div>
+          <ul id="todoBacklogList" class="card-list"></ul>
+        </div>
+        <div class="status-col status-inProgress todo-summary-col">
+          <div class="status-header"><span class="status-title">In Progress</span></div>
+          <ul id="todoInProgressList" class="card-list"></ul>
+        </div>
+      </div>
+    </section>
     <div id="boardRoot" class="board-grid"></div>
   </main>
   <footer class="app-footer">

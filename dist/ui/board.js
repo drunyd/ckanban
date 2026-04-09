@@ -291,6 +291,9 @@
 
   // Rendering (Projects & Cards)
   const boardRoot = document.getElementById('boardRoot');
+  const todoSummaryRoot = document.getElementById('todoSummary');
+  const todoBacklogList = document.getElementById('todoBacklogList');
+  const todoInProgressList = document.getElementById('todoInProgressList');
 
   function el(tag, cls){ const e=document.createElement(tag); if(cls) e.className=cls; return e; }
 
@@ -491,6 +494,51 @@
       row.appendChild(buildNotesSection(project));
       boardRoot.appendChild(row);
     });
+  }
+
+  function renderTodoList(listEl, projects, cards, status){
+    listEl.innerHTML='';
+    const items = [];
+    projects.forEach(project => {
+      if(!project.columns || !Array.isArray(project.columns[status])) return;
+      project.columns[status].forEach(cid => {
+        const card = cards[cid];
+        if(!card || card.type === 'link') return;
+        items.push({ card, project });
+      });
+    });
+    if(!items.length){
+      const placeholder = el('div','empty-msg'); placeholder.textContent='Empty'; listEl.appendChild(placeholder); return;
+    }
+    items.forEach(({ card, project }) => {
+      ensureCardStatus(card);
+      ensureCardTimeEntries(card);
+      const li = el('li','card');
+      const head = el('div','card-head');
+      const meta = el('div','card-meta');
+      const totalHours = getCardHoursTotal(card);
+      const hoursEl = el('div','card-hours-summary'); hoursEl.textContent = formatHours(totalHours) + 'h';
+      meta.appendChild(hoursEl);
+      const tsEl = el('div','card-timestamp');
+      tsEl.textContent = formatStatusTimestamp(card.statusChangedAt);
+      meta.appendChild(tsEl);
+      head.appendChild(meta);
+      li.appendChild(head);
+      const title = el('div','card-title'); title.textContent = card.title;
+      li.appendChild(title);
+      const projectLabel = el('div','todo-card-project');
+      projectLabel.textContent = project.name || 'Untitled Project';
+      li.appendChild(projectLabel);
+      listEl.appendChild(li);
+    });
+  }
+
+  function renderTodoSummary(){
+    if(!todoSummaryRoot || !todoBacklogList || !todoInProgressList) return;
+    const { projects, cards } = store.get();
+    const orderedProjects = projects.slice().sort((a,b)=> a.order-b.order);
+    renderTodoList(todoBacklogList, orderedProjects, cards, 'backlog');
+    renderTodoList(todoInProgressList, orderedProjects, cards, 'inProgress');
   }
 
   function statusLabel(s){
@@ -749,9 +797,11 @@
     wireUI();
     document.addEventListener('click', handleGlobalClickForColorPickers);
     store.subscribe(render);
+    store.subscribe(renderTodoSummary);
     store.subscribe(renderBookmarks);
     store.subscribe(updateToggleAllBtn);
     render();
+    renderTodoSummary();
     renderBookmarks();
     updateToggleAllBtn();
     setupQuickBookmarksModal();

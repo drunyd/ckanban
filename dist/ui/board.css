@@ -11,6 +11,15 @@ body { font-family: system-ui, Arial, sans-serif; margin:0; background:#f5f7fa; 
 .import-label { display:inline-flex; align-items:center; }
 main { padding:.75rem; flex:1; overflow:auto; }
 .board-grid { display:flex; flex-direction:column; gap:1rem; }
+.todo-summary { background:#fff; border:1px solid #d9e0e7; border-radius:6px; box-shadow:0 1px 2px rgba(0,0,0,.07); padding:.6rem .75rem .75rem; margin-bottom:1rem; }
+.todo-summary-header { display:flex; align-items:baseline; gap:.5rem; margin:0 0 .5rem; }
+.todo-summary-header h2 { margin:0; font-size:.95rem; font-weight:600; }
+.todo-summary-subtitle { font-size:.6rem; color:#64748b; text-transform:uppercase; letter-spacing:.4px; }
+.todo-summary-grid { display:grid; grid-template-columns:repeat(2, minmax(200px, 1fr)); gap:.75rem; }
+.todo-summary .status-col { min-height:120px; }
+.todo-summary .card { cursor:default; }
+.todo-summary .card-title { font-size:.7rem; }
+.todo-card-project { font-size:.55rem; color:#64748b; letter-spacing:.3px; text-transform:uppercase; }
 .project-row { background:#fff; border:1px solid #d9e0e7; border-radius:6px; overflow:visible; box-shadow:0 1px 2px rgba(0,0,0,.07); }
 .project-header { display:flex; align-items:center; justify-content:space-between; padding:.5rem .75rem; background:#eceff3; position:relative; }
 .project-header h2 { margin:0; font-size:1rem; font-weight:600; }

@@ -40,6 +40,7 @@ Why this project?
 ## Features
 - Multiple projects with drag & drop reordering.
 - Per‑project Kanban columns: Links, Backlog, In Progress, On Hold, Complete.
+- Global Todo summary at the top for Backlog + In Progress cards.
 - Color palette for project headers (+ contrast aware text color).
 - Per‑project notes (plain text area, timestamped updates).
 - Inline project name edit (pencil icon on header).
@@ -78,6 +79,7 @@ Removal: Disable or remove the extension from `chrome://extensions/` to restore 
 ---
 ## Usage Guide
 Core interactions:
+- Todo summary: top section shows all Backlog + In Progress cards across projects.
 - Add a project: Type a name, press Enter or click Add Project.
 - Add a card: '+' in Backlog column.
 - Add a link: '+' in Links column (enter display name + URL).
